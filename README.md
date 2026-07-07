@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Calendar
 
-## Getting Started
+A simple offline-first calendar app built with Next.js. Click any day to add, edit, or delete events, including recurring ones.
 
-First, run the development server:
+## Features
+
+- Month-view calendar with previous/next/today navigation
+- Add, edit, and delete events (title, time, description)
+- Recurring events — daily, weekly, monthly, or yearly, with an optional end date
+- Data persisted locally in SQLite (`data/calendar.db`)
+- Installable as a PWA
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) (App Router, Server Actions)
+- React + TypeScript
+- Tailwind CSS
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) for storage
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app` — routes, root layout, PWA manifest
+- `src/components` — `Calendar` (month grid) and `EventModal` (event form)
+- `src/lib/actions.ts` — server actions for event CRUD
+- `src/lib/server/db.ts` — SQLite schema and queries
+- `src/lib/types.ts` — shared types
 
-## Learn More
+## Notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Recurring events store a single anchor event; occurrences are computed on the fly for whichever month is visible.
+- Editing or deleting a recurring event applies to the entire series, not a single occurrence.
