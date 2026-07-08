@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   deleteEvent as deleteEventAction,
   saveEvent as saveEventAction,
 } from "@/lib/actions";
 import type { CalendarEvent } from "@/lib/types";
+import { getTranslations } from "@/lib/i18n";
+import { setLanguage, useLanguage } from "@/lib/useLanguage";
 import EventModal from "./EventModal";
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // 연/월/일을 "YYYY-MM-DD" 형식의 문자열 키로 변환한다. (month는 0부터 시작하는 인덱스)
 function toDateKey(year: number, month: number, day: number) {
@@ -56,31 +56,45 @@ function buildMonthGrid(year: number, month: number) {
 
 // 일정이 주어진 날짜(dateKey)에 발생하는지 판단한다.
 // 반복이 없으면 시작일과 정확히 같은 날만, 반복이 있으면 시작일 이후(및 종료일 이전) 중
-// 반복 주기에 맞는 날짜에 발생한다고 본다.
+// 반복 주기 * 간격(repeatInterval, 기본 1)에 맞는 날짜에 발생한다고 본다.
 function eventOccursOnDate(event: CalendarEvent, dateKey: string): boolean {
   if (dateKey < event.date) return false;
   if (event.repeatUntil && dateKey > event.repeatUntil) return false;
   if (dateKey === event.date) return true;
   if (!event.repeat) return false;
 
+  const interval =
+    event.repeatInterval && event.repeatInterval > 0
+      ? event.repeatInterval
+      : 1;
   const [sy, sm, sd] = event.date.split("-").map(Number);
   const [ty, tm, td] = dateKey.split("-").map(Number);
   const start = new Date(sy, sm - 1, sd);
   const target = new Date(ty, tm - 1, td);
 
   switch (event.repeat) {
-    case "daily":
-      return true;
+    case "daily": {
+      const diffDays = Math.round(
+        (target.getTime() - start.getTime()) / 86_400_000
+      );
+      return diffDays % interval === 0;
+    }
     case "weekly": {
       const diffDays = Math.round(
         (target.getTime() - start.getTime()) / 86_400_000
       );
-      return diffDays % 7 === 0;
+      if (diffDays % 7 !== 0) return false;
+      return diffDays / 7 % interval === 0;
     }
-    case "monthly":
-      return td === sd;
-    case "yearly":
-      return td === sd && tm === sm;
+    case "monthly": {
+      if (td !== sd) return false;
+      const diffMonths = (ty - sy) * 12 + (tm - sm);
+      return diffMonths % interval === 0;
+    }
+    case "yearly": {
+      if (td !== sd || tm !== sm) return false;
+      return (ty - sy) % interval === 0;
+    }
     default:
       return false;
   }
@@ -98,6 +112,13 @@ export default function Calendar({ initialEvents }: CalendarProps) {
   const [month, setMonth] = useState(today.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const language = useLanguage();
+  const t = useMemo(() => getTranslations(language), [language]);
+
+  // 언어가 바뀔 때마다 <html lang>을 동기화한다(외부 DOM 상태 동기화이므로 이펙트로 처리).
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   // 현재 연/월에 맞는 달력 그리드 셀 목록을 계산한다.
   const cells = useMemo(() => buildMonthGrid(year, month), [year, month]);
@@ -158,82 +179,138 @@ export default function Calendar({ initialEvents }: CalendarProps) {
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">
-          {new Date(year, month).toLocaleString(undefined, {
-            month: "long",
-            year: "numeric",
-          })}
-        </h1>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={goToPrevMonth}
-            className="px-2.5 py-1.5 text-sm rounded border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/10"
-            aria-label="Previous month"
-          >
-            ←
-          </button>
-          <button
-            onClick={goToToday}
-            className="px-2.5 py-1.5 text-sm rounded border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            Today
-          </button>
-          <button
-            onClick={goToNextMonth}
-            className="px-2.5 py-1.5 text-sm rounded border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/10"
-            aria-label="Next month"
-          >
-            →
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 text-center text-xs font-medium opacity-60 mb-1">
-        {WEEKDAYS.map((d) => (
-          <div key={d} className="py-1">
-            {d}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map(({ day, dateKey, inMonth }) => {
-          const dayEvents = eventsByDate.get(dateKey) ?? [];
-          const isToday = dateKey === todayKey;
-          return (
+      <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-background shadow-sm p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            {new Date(year, month).toLocaleString(t.locale, {
+              month: "long",
+              year: "numeric",
+            })}
+          </h1>
+          <div className="flex items-center gap-1.5">
             <button
-              key={dateKey}
-              onClick={() => setSelectedDate(dateKey)}
+              onClick={goToPrevMonth}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label={t.prevMonth}
+            >
+              ←
+            </button>
+            <button
+              onClick={goToToday}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {t.today}
+            </button>
+            <button
+              onClick={goToNextMonth}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label={t.nextMonth}
+            >
+              →
+            </button>
+            <div className="ml-1.5 flex rounded-lg border border-black/10 dark:border-white/15 overflow-hidden text-sm">
+              <button
+                onClick={() => setLanguage("en")}
+                className={
+                  "px-2.5 py-1.5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent " +
+                  (language === "en"
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent/10")
+                }
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLanguage("ko")}
+                className={
+                  "px-2.5 py-1.5 font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent " +
+                  (language === "ko"
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent/10")
+                }
+              >
+                한국어
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 text-center text-xs font-semibold mb-1">
+          {t.weekdays.map((d, i) => (
+            <div
+              key={d}
               className={[
-                "aspect-square sm:aspect-auto sm:h-24 flex flex-col items-start p-1.5 rounded border text-left overflow-hidden",
-                "border-black/10 dark:border-white/15",
-                inMonth ? "" : "opacity-35",
-                isToday ? "ring-2 ring-offset-1 ring-black/50 dark:ring-white/50" : "",
-                "hover:bg-black/5 dark:hover:bg-white/10",
+                "py-1",
+                i === 0
+                  ? "text-red-500 dark:text-red-400"
+                  : i === 6
+                    ? "text-blue-500 dark:text-blue-400"
+                    : "opacity-60",
               ].join(" ")}
             >
-              <span className="text-xs font-medium">{day}</span>
-              <div className="mt-0.5 w-full space-y-0.5 overflow-hidden">
-                {dayEvents.slice(0, 2).map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="truncate text-[10px] leading-tight rounded bg-foreground/10 px-1 py-0.5"
-                  >
-                    {ev.repeat ? "↻ " : ""}
-                    {ev.time ? `${ev.time} ` : ""}
-                    {ev.title}
-                  </div>
-                ))}
-                {dayEvents.length > 2 && (
-                  <div className="text-[10px] opacity-60">
-                    +{dayEvents.length - 2} more
-                  </div>
-                )}
-              </div>
-            </button>
-          );
-        })}
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5">
+          {cells.map(({ day, dateKey, inMonth }, index) => {
+            const dayEvents = eventsByDate.get(dateKey) ?? [];
+            const isToday = dateKey === todayKey;
+            const weekdayIndex = index % 7;
+            return (
+              <button
+                key={dateKey}
+                onClick={() => setSelectedDate(dateKey)}
+                className={[
+                  "aspect-square sm:aspect-auto sm:h-24 flex flex-col items-start p-1.5 rounded-lg border text-left overflow-hidden transition-colors",
+                  "border-black/10 dark:border-white/15",
+                  inMonth ? "" : "opacity-35",
+                  isToday ? "ring-2 ring-offset-1 ring-accent" : "",
+                  "hover:bg-accent/5 hover:border-accent/30",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-accent",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "text-xs font-semibold w-5 h-5 flex items-center justify-center rounded-full",
+                    isToday
+                      ? "bg-accent text-accent-foreground"
+                      : weekdayIndex === 0
+                        ? "text-red-500 dark:text-red-400"
+                        : weekdayIndex === 6
+                          ? "text-blue-500 dark:text-blue-400"
+                          : "",
+                  ].join(" ")}
+                >
+                  {day}
+                </span>
+                <div className="mt-0.5 w-full space-y-0.5 overflow-hidden">
+                  {dayEvents.slice(0, 2).map((ev) => (
+                    <div
+                      key={ev.id}
+                      className={[
+                        "truncate text-[10px] leading-tight rounded px-1 py-0.5",
+                        ev.repeat
+                          ? "bg-repeat-accent/15 text-repeat-accent"
+                          : "bg-accent/10 text-accent",
+                      ].join(" ")}
+                    >
+                      {ev.repeat ? "↻ " : ""}
+                      {ev.time ? `${ev.time} ` : ""}
+                      {ev.title}
+                    </div>
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <div className="text-[10px] opacity-60">
+                      {t.more(dayEvents.length - 2)}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {selectedDate && (
@@ -243,6 +320,7 @@ export default function Calendar({ initialEvents }: CalendarProps) {
           onClose={() => setSelectedDate(null)}
           onSave={handleSave}
           onDelete={handleDelete}
+          t={t}
         />
       )}
     </div>

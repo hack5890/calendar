@@ -17,12 +17,13 @@ db.exec(`
     time TEXT,
     description TEXT,
     repeat TEXT,
+    repeat_interval INTEGER,
     repeat_until TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 `);
 
-// 기존에 생성된 DB 파일에는 repeat/repeat_until 컬럼이 없을 수 있으므로 마이그레이션한다.
+// 기존에 생성된 DB 파일에는 repeat/repeat_interval/repeat_until 컬럼이 없을 수 있으므로 마이그레이션한다.
 const existingColumns = new Set(
   (db.prepare("PRAGMA table_info(events)").all() as { name: string }[]).map(
     (c) => c.name
@@ -30,6 +31,9 @@ const existingColumns = new Set(
 );
 if (!existingColumns.has("repeat")) {
   db.exec("ALTER TABLE events ADD COLUMN repeat TEXT");
+}
+if (!existingColumns.has("repeat_interval")) {
+  db.exec("ALTER TABLE events ADD COLUMN repeat_interval INTEGER");
 }
 if (!existingColumns.has("repeat_until")) {
   db.exec("ALTER TABLE events ADD COLUMN repeat_until TEXT");
@@ -42,6 +46,7 @@ interface EventRow {
   time: string | null;
   description: string | null;
   repeat: string | null;
+  repeat_interval: number | null;
   repeat_until: string | null;
 }
 
@@ -53,6 +58,7 @@ function rowToEvent(row: EventRow): CalendarEvent {
     time: row.time ?? undefined,
     description: row.description ?? undefined,
     repeat: (row.repeat as CalendarEvent["repeat"]) ?? undefined,
+    repeatInterval: row.repeat_interval ?? undefined,
     repeatUntil: row.repeat_until ?? undefined,
   };
 }
@@ -60,7 +66,7 @@ function rowToEvent(row: EventRow): CalendarEvent {
 export function getAllEvents(): CalendarEvent[] {
   const rows = db
     .prepare(
-      "SELECT id, date, title, time, description, repeat, repeat_until FROM events"
+      "SELECT id, date, title, time, description, repeat, repeat_interval, repeat_until FROM events"
     )
     .all() as EventRow[];
   return rows.map(rowToEvent);
@@ -68,14 +74,15 @@ export function getAllEvents(): CalendarEvent[] {
 
 export function saveEvent(event: CalendarEvent): void {
   db.prepare(
-    `INSERT INTO events (id, date, title, time, description, repeat, repeat_until)
-     VALUES (@id, @date, @title, @time, @description, @repeat, @repeatUntil)
+    `INSERT INTO events (id, date, title, time, description, repeat, repeat_interval, repeat_until)
+     VALUES (@id, @date, @title, @time, @description, @repeat, @repeatInterval, @repeatUntil)
      ON CONFLICT(id) DO UPDATE SET
        date = excluded.date,
        title = excluded.title,
        time = excluded.time,
        description = excluded.description,
        repeat = excluded.repeat,
+       repeat_interval = excluded.repeat_interval,
        repeat_until = excluded.repeat_until`
   ).run({
     id: event.id,
@@ -84,6 +91,7 @@ export function saveEvent(event: CalendarEvent): void {
     time: event.time ?? null,
     description: event.description ?? null,
     repeat: event.repeat ?? null,
+    repeatInterval: event.repeatInterval ?? null,
     repeatUntil: event.repeatUntil ?? null,
   });
 }

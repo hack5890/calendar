@@ -7,5 +7,6 @@ export interface CalendarEvent {
   time?: string; // HH:mm
   description?: string;
   repeat?: RecurrenceFrequency;
+  repeatInterval?: number; // 반복 간격 (예: repeat이 weekly이고 이 값이 2면 2주마다). 없으면 1로 취급
   repeatUntil?: string; // YYYY-MM-DD, 반복 종료일(포함). 없으면 무기한 반복
 }
