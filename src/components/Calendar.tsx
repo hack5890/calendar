@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   deleteEvent as deleteEventAction,
+  getAllEvents as getAllEventsAction,
+  logout as logoutAction,
   saveEvent as saveEventAction,
+  type CalendarSummary,
 } from "@/lib/actions";
 import type { CalendarEvent } from "@/lib/types";
+import { EVENT_COLOR_CLASSES } from "@/lib/eventColors";
 import { getTranslations } from "@/lib/i18n";
 import { setLanguage, useLanguage } from "@/lib/useLanguage";
 import EventModal from "./EventModal";
+import ShareModal from "./ShareModal";
 
 // 연/월/일을 "YYYY-MM-DD" 형식의 문자열 키로 변환한다. (month는 0부터 시작하는 인덱스)
 function toDateKey(year: number, month: number, day: number) {
@@ -102,18 +107,33 @@ function eventOccursOnDate(event: CalendarEvent, dateKey: string): boolean {
 
 interface CalendarProps {
   initialEvents: CalendarEvent[];
+  calendars: CalendarSummary[];
+  currentUserId: string;
+  currentUsername: string;
 }
 
 // 달력 화면 전체를 담당하는 메인 컴포넌트.
 // 현재 연/월 상태, 서버에서 불러온 이벤트 목록, 선택된 날짜(모달 표시용)를 관리한다.
-export default function Calendar({ initialEvents }: CalendarProps) {
+export default function Calendar({
+  initialEvents,
+  calendars,
+  currentUserId,
+  currentUsername,
+}: CalendarProps) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState(currentUserId);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const language = useLanguage();
   const t = useMemo(() => getTranslations(language), [language]);
+
+  const selectedCalendar =
+    calendars.find((c) => c.ownerId === selectedOwnerId) ?? calendars[0];
+  const canEdit = selectedCalendar?.permission === "edit";
+  const isOwnCalendarSelected = selectedOwnerId === currentUserId;
 
   // 언어가 바뀔 때마다 <html lang>을 동기화한다(외부 DOM 상태 동기화이므로 이펙트로 처리).
   useEffect(() => {
@@ -165,21 +185,67 @@ export default function Calendar({ initialEvents }: CalendarProps) {
     setMonth(today.getMonth());
   }
 
-  // 로컬 상태를 먼저 갱신해 화면에 즉시 반영하고, 서버 액션으로 DB에 저장한다.
+  // 로컬 상태를 먼저 갱신해 화면에 즉시 반영하고, 서버 액션으로 현재 보고 있는 캘린더에 저장한다.
   async function handleSave(event: CalendarEvent) {
     setEvents((prev) => [...prev.filter((e) => e.id !== event.id), event]);
-    await saveEventAction(event);
+    await saveEventAction(event, selectedOwnerId);
   }
 
-  // 로컬 상태에서 먼저 제거하고, 서버 액션으로 DB에서도 삭제한다.
+  // 로컬 상태에서 먼저 제거하고, 서버 액션으로 현재 보고 있는 캘린더에서도 삭제한다.
   async function handleDelete(id: string) {
     setEvents((prev) => prev.filter((e) => e.id !== id));
-    await deleteEventAction(id);
+    await deleteEventAction(id, selectedOwnerId);
+  }
+
+  // 캘린더(내 캘린더 / 공유받은 캘린더)를 전환하면 해당 캘린더의 이벤트를 새로 불러온다.
+  async function handleSelectCalendar(ownerId: string) {
+    setSelectedOwnerId(ownerId);
+    setSelectedDate(null);
+    const fresh = await getAllEventsAction(ownerId);
+    setEvents(fresh);
+  }
+
+  async function handleLogout() {
+    await logoutAction();
   }
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4">
       <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-background shadow-sm p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-black/10 dark:border-white/10 text-sm">
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedOwnerId}
+              onChange={(e) => handleSelectCalendar(e.target.value)}
+              className="rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            >
+              {calendars.map((c) => (
+                <option key={c.ownerId} value={c.ownerId}>
+                  {c.isOwn ? t.myCalendar : t.calendarOf(c.ownerUsername)}
+                  {c.permission === "view" ? ` · ${t.viewOnlyBadge}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs opacity-60">{currentUsername}</span>
+            {isOwnCalendarSelected && (
+              <button
+                onClick={() => setShareModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {t.share}
+              </button>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {t.logout}
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             {new Date(year, month).toLocaleString(t.locale, {
@@ -291,9 +357,11 @@ export default function Calendar({ initialEvents }: CalendarProps) {
                       key={ev.id}
                       className={[
                         "truncate text-[10px] leading-tight rounded px-1 py-0.5",
-                        ev.repeat
-                          ? "bg-repeat-accent/15 text-repeat-accent"
-                          : "bg-accent/10 text-accent",
+                        ev.color
+                          ? EVENT_COLOR_CLASSES[ev.color].pill
+                          : ev.repeat
+                            ? "bg-repeat-accent/15 text-repeat-accent"
+                            : "bg-accent/10 text-accent",
                       ].join(" ")}
                     >
                       {ev.repeat ? "↻ " : ""}
@@ -321,7 +389,12 @@ export default function Calendar({ initialEvents }: CalendarProps) {
           onSave={handleSave}
           onDelete={handleDelete}
           t={t}
+          canEdit={canEdit}
         />
+      )}
+
+      {shareModalOpen && (
+        <ShareModal onClose={() => setShareModalOpen(false)} t={t} />
       )}
     </div>
   );

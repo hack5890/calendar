@@ -6,6 +6,14 @@
   --accent: #4f46e5;
   --accent-foreground: #ffffff;
   --repeat-accent: #d97706;
+  --event-red: #dc2626;
+  --event-orange: #ea580c;
+  --event-yellow: #ca8a04;
+  --event-green: #16a34a;
+  --event-teal: #0d9488;
+  --event-blue: #2563eb;
+  --event-purple: #9333ea;
+  --event-pink: #db2777;
 }
 
 @theme inline {
@@ -14,6 +22,14 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-repeat-accent: var(--repeat-accent);
+  --color-event-red: var(--event-red);
+  --color-event-orange: var(--event-orange);
+  --color-event-yellow: var(--event-yellow);
+  --color-event-green: var(--event-green);
+  --color-event-teal: var(--event-teal);
+  --color-event-blue: var(--event-blue);
+  --color-event-purple: var(--event-purple);
+  --color-event-pink: var(--event-pink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -25,6 +41,14 @@
     --accent: #818cf8;
     --accent-foreground: #0a0a0a;
     --repeat-accent: #fbbf24;
+    --event-red: #f87171;
+    --event-orange: #fb923c;
+    --event-yellow: #fbbf24;
+    --event-green: #4ade80;
+    --event-teal: #2dd4bf;
+    --event-blue: #60a5fa;
+    --event-purple: #c084fc;
+    --event-pink: #f472b6;
   }
 }
 

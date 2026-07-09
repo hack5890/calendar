@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import type { CalendarEvent, RecurrenceFrequency } from "@/lib/types";
 import type { Translations } from "@/lib/i18n";
+import { EVENT_COLORS, EVENT_COLOR_CLASSES, type EventColor } from "@/lib/eventColors";
 
 const REPEAT_ORDER: (RecurrenceFrequency | "none")[] = [
   "none",
@@ -19,9 +20,11 @@ interface EventModalProps {
   onSave: (event: CalendarEvent) => void;
   onDelete: (id: string) => void;
   t: Translations;
+  canEdit?: boolean;
 }
 
 // 특정 날짜의 이벤트 목록을 보여주고, 새 이벤트 추가/기존 이벤트 수정/삭제를 처리하는 모달.
+// canEdit이 false이면(보기 전용으로 공유받은 캘린더) 목록만 보여주고 추가/수정/삭제는 막는다.
 export default function EventModal({
   date,
   events,
@@ -29,6 +32,7 @@ export default function EventModal({
   onSave,
   onDelete,
   t,
+  canEdit = true,
 }: EventModalProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   // 수정 중인 일정의 원래 시작일(anchor date). 반복 일정은 이 날짜를 기준으로 발생일이
@@ -42,6 +46,7 @@ export default function EventModal({
   const [repeat, setRepeat] = useState<RecurrenceFrequency | "none">("none");
   const [repeatInterval, setRepeatInterval] = useState(1);
   const [repeatUntil, setRepeatUntil] = useState("");
+  const [color, setColor] = useState<EventColor | undefined>(undefined);
   // 삭제 확인 모달에 표시할 대상 이벤트 id (null이면 확인 모달을 띄우지 않음).
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -55,6 +60,7 @@ export default function EventModal({
     setRepeat("none");
     setRepeatInterval(1);
     setRepeatUntil("");
+    setColor(undefined);
   }
 
   // 선택한 기존 이벤트의 값들을 폼에 채워 넣어 수정 모드로 전환한다.
@@ -67,6 +73,7 @@ export default function EventModal({
     setRepeat(event.repeat ?? "none");
     setRepeatInterval(event.repeatInterval ?? 1);
     setRepeatUntil(event.repeatUntil ?? "");
+    setColor(event.color);
   }
 
   // 폼 제출 처리. 제목이 비어 있으면 무시하고, 수정 모드면 기존 id와 원래 시작일을,
@@ -84,6 +91,7 @@ export default function EventModal({
       repeat: repeat === "none" ? undefined : repeat,
       repeatInterval: repeat !== "none" ? repeatInterval : undefined,
       repeatUntil: repeat !== "none" && repeatUntil ? repeatUntil : undefined,
+      color,
     });
     resetForm();
   }
@@ -119,9 +127,21 @@ export default function EventModal({
                     className="flex items-center justify-between gap-2 rounded-lg border border-black/10 dark:border-white/15 px-3 py-2 text-sm hover:border-accent/40 transition-colors"
                   >
                     <button
-                      className="flex-1 text-left"
-                      onClick={() => startEdit(ev)}
+                      type="button"
+                      className={
+                        "flex-1 text-left" + (canEdit ? "" : " cursor-default")
+                      }
+                      onClick={() => canEdit && startEdit(ev)}
                     >
+                      {ev.color && (
+                        <span
+                          className={[
+                            "inline-block w-2 h-2 rounded-full mr-1.5 align-middle",
+                            EVENT_COLOR_CLASSES[ev.color].dot,
+                          ].join(" ")}
+                          title={t.colorNames[ev.color]}
+                        />
+                      )}
                       {ev.repeat && (
                         <span
                           className="mr-1 text-repeat-accent"
@@ -143,18 +163,21 @@ export default function EventModal({
                         <span className="ml-2 text-accent">{ev.time}</span>
                       )}
                     </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(ev.id)}
-                      className="opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-                      aria-label={t.deleteEvent}
-                    >
-                      🗑
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => setConfirmDeleteId(ev.id)}
+                        className="opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                        aria-label={t.deleteEvent}
+                      >
+                        🗑
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
 
+            {canEdit && (
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 type="text"
@@ -177,6 +200,40 @@ export default function EventModal({
                 rows={2}
                 className="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
+              <div>
+                <span className="block text-xs opacity-60 mb-1">{t.color}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setColor(undefined)}
+                    aria-label={t.colorNone}
+                    aria-pressed={color === undefined}
+                    className={[
+                      "w-6 h-6 rounded-full border border-black/20 dark:border-white/25 flex items-center justify-center text-[10px] opacity-70 hover:opacity-100 transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                      color === undefined ? "ring-2 ring-offset-1 ring-accent" : "",
+                    ].join(" ")}
+                  >
+                    ✕
+                  </button>
+                  {EVENT_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      aria-label={t.colorNames[c]}
+                      aria-pressed={color === c}
+                      title={t.colorNames[c]}
+                      className={[
+                        "w-6 h-6 rounded-full transition-transform outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                        EVENT_COLOR_CLASSES[c].dot,
+                        color === c
+                          ? "ring-2 ring-offset-1 ring-black/40 dark:ring-white/60 scale-110"
+                          : "hover:scale-110",
+                      ].join(" ")}
+                    />
+                  ))}
+                </div>
+              </div>
               <select
                 value={repeat}
                 onChange={(e) =>
@@ -238,6 +295,7 @@ export default function EventModal({
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       </div>
