@@ -1,0 +1,38 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./src/app/**/*.{js,jsx,ts,tsx}", "./src/components/**/*.{js,jsx,ts,tsx}"],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        background: "#ffffff",
+        "background-dark": "#0a0a0a",
+        foreground: "#171717",
+        "foreground-dark": "#ededed",
+        accent: "#4f46e5",
+        "accent-dark": "#818cf8",
+        "accent-foreground": "#ffffff",
+        "accent-foreground-dark": "#0a0a0a",
+        "repeat-accent": "#d97706",
+        "repeat-accent-dark": "#fbbf24",
+        "event-red": "#dc2626",
+        "event-red-dark": "#f87171",
+        "event-orange": "#ea580c",
+        "event-orange-dark": "#fb923c",
+        "event-yellow": "#ca8a04",
+        "event-yellow-dark": "#fbbf24",
+        "event-green": "#16a34a",
+        "event-green-dark": "#4ade80",
+        "event-teal": "#0d9488",
+        "event-teal-dark": "#2dd4bf",
+        "event-blue": "#2563eb",
+        "event-blue-dark": "#60a5fa",
+        "event-purple": "#9333ea",
+        "event-purple-dark": "#c084fc",
+        "event-pink": "#db2777",
+        "event-pink-dark": "#f472b6",
+      },
+    },
+  },
+  plugins: [],
+};
