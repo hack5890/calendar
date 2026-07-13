@@ -1,17 +1,14 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   deleteEvent as dbDeleteEvent,
   getAllEvents as dbGetAllEvents,
   saveEvent as dbSaveEvent,
-  createUser,
-  getUserByUsername,
   upsertShare,
   deleteShare,
-  getSharePermission,
+  getUserByUsername,
   listSharesByOwner,
   listSharedWithUser,
   type SharePermission,
@@ -22,9 +19,10 @@ import {
   clearSessionCookie,
   createSessionCookie,
   getCurrentUser,
-  hashPassword,
-  verifyPassword,
+  registerUser,
+  verifyCredentials,
 } from "@/lib/server/auth";
+import { checkCalendarAccess } from "@/lib/server/authz";
 import type { CalendarEvent } from "@/lib/types";
 
 export type AuthErrorCode =
@@ -60,17 +58,11 @@ export async function register(
   username: string,
   password: string
 ): Promise<AuthResult> {
-  const trimmed = username.trim();
-  if (!trimmed || !password) {
-    return { error: "missing_fields" };
+  const outcome = registerUser(username, password);
+  if (!outcome.ok) {
+    return { error: outcome.error };
   }
-  if (getUserByUsername(trimmed)) {
-    return { error: "username_taken" };
-  }
-
-  const id = randomUUID();
-  createUser(id, trimmed, hashPassword(password));
-  await createSessionCookie(id);
+  await createSessionCookie(outcome.user.id);
   redirect("/");
 }
 
@@ -78,11 +70,11 @@ export async function login(
   username: string,
   password: string
 ): Promise<AuthResult> {
-  const user = getUserByUsername(username.trim());
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  const outcome = verifyCredentials(username, password);
+  if (!outcome.ok) {
     return { error: "invalid_credentials" };
   }
-  await createSessionCookie(user.id);
+  await createSessionCookie(outcome.user.id);
   redirect("/");
 }
 
@@ -99,10 +91,9 @@ async function authorizeCalendar(
 ): Promise<string> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.id === ownerId) return user.id;
 
-  const permission = getSharePermission(ownerId, user.id);
-  if (!permission || (required === "edit" && permission !== "edit")) {
+  const access = checkCalendarAccess(user.id, ownerId, required);
+  if (!access.ok) {
     throw new Error("이 캘린더에 대한 권한이 없습니다.");
   }
   return user.id;
