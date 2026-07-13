@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as sharesApi from "@/lib/api/shares";
 import { ApiError } from "@/lib/api/client";
@@ -45,9 +46,16 @@ export default function ShareScreen() {
     <SafeAreaView className="flex-1 bg-background dark:bg-background-dark">
       <ScrollView className="flex-1">
         <View className="p-5">
-          <Text className="text-lg font-bold mb-4 text-foreground dark:text-foreground-dark">
-            {t.shareTitle}
-          </Text>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-bold text-foreground dark:text-foreground-dark">
+              {t.shareTitle}
+            </Text>
+            <Pressable onPress={() => router.back()} hitSlop={8}>
+              <Text className="text-sm opacity-60 text-foreground dark:text-foreground-dark">
+                {t.close}
+              </Text>
+            </Pressable>
+          </View>
           {!loading && <ShareList shares={shares} onRevoke={handleRevoke} t={t} />}
           <InviteForm onSubmit={handleInvite} t={t} />
         </View>
