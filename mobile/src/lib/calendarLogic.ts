@@ -1,4 +1,15 @@
-import type { CalendarEvent } from "@/lib/types";
+import type { getTranslations } from "@/lib/i18n";
+import type { CalendarEvent, CalendarSummary } from "@/lib/types";
+
+// 캘린더 요약 정보로부터 화면에 표시할 라벨을 만든다("내 캘린더" / "{username}님의 캘린더").
+// mobile의 여러 화면(MonthHeader, CalendarPickerList, DayEventList, EventForm)에서 공유한다.
+export function calendarLabel(
+  t: ReturnType<typeof getTranslations>,
+  calendar: Pick<CalendarSummary, "isOwn" | "ownerUsername"> | null | undefined
+): string {
+  if (!calendar) return "";
+  return calendar.isOwn ? t.myCalendar : t.calendarOf(calendar.ownerUsername);
+}
 
 // 연/월/일을 "YYYY-MM-DD" 형식의 문자열 키로 변환한다. (month는 0부터 시작하는 인덱스)
 // src/components/Calendar.tsx의 toDateKey와 동일한 알고리즘 — 반드시 그대로 유지할 것.

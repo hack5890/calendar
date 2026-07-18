@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { EVENT_COLOR_CLASSES } from "@/lib/eventColors";
 import { getTranslations } from "@/lib/i18n";
-import type { CalendarEvent } from "@/lib/types";
+import type { OwnedEvent } from "@/lib/types";
 
 interface DayCellProps {
   day: number;
@@ -9,7 +9,9 @@ interface DayCellProps {
   inMonth: boolean;
   weekdayIndex: number;
   isToday: boolean;
-  events: CalendarEvent[];
+  events: OwnedEvent[];
+  isMerged: boolean;
+  calendarMarkColorClass: (ownerId: string) => string;
   onPress: () => void;
   t: ReturnType<typeof getTranslations>;
 }
@@ -20,6 +22,8 @@ export default function DayCell({
   weekdayIndex,
   isToday,
   events,
+  isMerged,
+  calendarMarkColorClass,
   onPress,
   t,
 }: DayCellProps) {
@@ -61,7 +65,7 @@ export default function DayCell({
           {visible.map((ev) => (
             <View
               key={ev.id}
-              className={`rounded px-1 py-0.5 ${
+              className={`flex-row items-center gap-0.5 rounded px-1 py-0.5 ${
                 ev.color
                   ? EVENT_COLOR_CLASSES[ev.color].pill
                   : ev.repeat
@@ -69,9 +73,14 @@ export default function DayCell({
                     : "bg-accent/10 dark:bg-accent-dark/10"
               }`}
             >
+              {isMerged && (
+                <View
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${calendarMarkColorClass(ev.ownerId)}`}
+                />
+              )}
               <Text
                 numberOfLines={1}
-                className={`text-[9px] leading-tight ${
+                className={`flex-1 text-[9px] leading-tight ${
                   ev.color
                     ? EVENT_COLOR_CLASSES[ev.color].text
                     : ev.repeat

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import * as Crypto from "expo-crypto";
+import { calendarLabel } from "@/lib/calendarLogic";
 import { getTranslations } from "@/lib/i18n";
-import type { CalendarEvent, RecurrenceFrequency } from "@/lib/types";
+import type { CalendarEvent, CalendarSummary, OwnedEvent, RecurrenceFrequency } from "@/lib/types";
 import type { EventColor } from "@/lib/eventColors";
 import ColorPicker from "./ColorPicker";
 
@@ -16,8 +17,13 @@ const REPEAT_ORDER: (RecurrenceFrequency | "none")[] = [
 
 interface EventFormProps {
   date: string;
-  editing: CalendarEvent | null;
-  onSubmit: (event: CalendarEvent, isEditing: boolean) => void;
+  editing: OwnedEvent | null;
+  // 겹쳐보기 중 새 일정을 저장할 수 있는 후보 캘린더 목록(편집 권한이 있는 캘린더들).
+  targetCalendars: CalendarSummary[];
+  isMerged: boolean;
+  defaultOwnerId?: string;
+  calendarMarkColorClass: (ownerId: string) => string;
+  onSubmit: (event: CalendarEvent, isEditing: boolean, ownerId: string) => void;
   onCancelEdit: () => void;
   t: ReturnType<typeof getTranslations>;
 }
@@ -25,7 +31,17 @@ interface EventFormProps {
 // 호출부(day/[date].tsx)에서 key={editing?.id ?? "new"}로 렌더링해야 한다 — 그래야 편집 대상이
 // 바뀔 때 React가 이 컴포넌트를 새로 마운트해서 아래 초기값들이 다시 계산되고, 폼을 동기화하기
 // 위한 useEffect가 필요 없어진다("초기화" 대신 "리셋"으로 prop 변경에 대응하는 패턴).
-export default function EventForm({ date, editing, onSubmit, onCancelEdit, t }: EventFormProps) {
+export default function EventForm({
+  date,
+  editing,
+  targetCalendars,
+  isMerged,
+  defaultOwnerId,
+  calendarMarkColorClass,
+  onSubmit,
+  onCancelEdit,
+  t,
+}: EventFormProps) {
   const [title, setTitle] = useState(editing?.title ?? "");
   const [time, setTime] = useState(editing?.time ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -33,9 +49,15 @@ export default function EventForm({ date, editing, onSubmit, onCancelEdit, t }: 
   const [repeatInterval, setRepeatInterval] = useState(String(editing?.repeatInterval ?? 1));
   const [repeatUntil, setRepeatUntil] = useState(editing?.repeatUntil ?? "");
   const [color, setColor] = useState<EventColor | undefined>(editing?.color);
+  const [targetOwnerId, setTargetOwnerId] = useState<string | undefined>(defaultOwnerId);
+
+  // 새 일정 작성 중이면 선택한 대상 캘린더(targetOwnerId)에, 기존 일정 수정 중이면 그 일정이
+  // 이미 속한 캘린더(editing.ownerId)에 저장한다 — 수정 중에는 캘린더를 바꿀 수 없다.
+  const ownerId = editing ? editing.ownerId : targetOwnerId;
+  const showTargetPicker = isMerged && !editing && targetCalendars.length > 1;
 
   function handleSubmit() {
-    if (!title.trim()) return;
+    if (!title.trim() || !ownerId) return;
     const interval = Math.max(1, Number(repeatInterval) || 1);
     onSubmit(
       {
@@ -49,12 +71,45 @@ export default function EventForm({ date, editing, onSubmit, onCancelEdit, t }: 
         repeatUntil: repeat !== "none" && repeatUntil ? repeatUntil : undefined,
         color,
       },
-      Boolean(editing)
+      Boolean(editing),
+      ownerId
     );
   }
 
   return (
     <View className="gap-3">
+      {showTargetPicker && (
+        <View>
+          <Text className="text-xs opacity-60 mb-1 text-foreground dark:text-foreground-dark">
+            {t.targetCalendarLabel}
+          </Text>
+          <View className="flex-row flex-wrap gap-1.5">
+            {targetCalendars.map((c) => (
+              <Pressable
+                key={c.ownerId}
+                onPress={() => setTargetOwnerId(c.ownerId)}
+                className={`flex-row items-center gap-1.5 px-2.5 py-1.5 rounded-lg border ${
+                  targetOwnerId === c.ownerId
+                    ? "bg-accent dark:bg-accent-dark border-accent dark:border-accent-dark"
+                    : "border-black/10 dark:border-white/15"
+                }`}
+              >
+                <View className={`w-2 h-2 rounded-full ${calendarMarkColorClass(c.ownerId)}`} />
+                <Text
+                  className={`text-xs font-medium ${
+                    targetOwnerId === c.ownerId
+                      ? "text-accent-foreground dark:text-accent-foreground-dark"
+                      : "text-foreground dark:text-foreground-dark"
+                  }`}
+                >
+                  {calendarLabel(t, c)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       <TextInput
         value={title}
         onChangeText={setTitle}
@@ -147,7 +202,7 @@ export default function EventForm({ date, editing, onSubmit, onCancelEdit, t }: 
         )}
         <Pressable
           onPress={handleSubmit}
-          disabled={!title.trim()}
+          disabled={!title.trim() || !ownerId}
           className="px-3 py-1.5 rounded-lg bg-accent dark:bg-accent-dark"
         >
           <Text className="text-sm font-medium text-accent-foreground dark:text-accent-foreground-dark">

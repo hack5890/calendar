@@ -14,6 +14,10 @@ export interface CalendarEvent {
   color?: EventColor;
 }
 
+// 여러 캘린더를 겹쳐볼 때, 각 이벤트가 어느 캘린더(owner) 소속인지 함께 들고 있는 형태.
+// src/components/Calendar.tsx의 OwnedEvent와 동일한 개념.
+export type OwnedEvent = CalendarEvent & { ownerId: string };
+
 export type SharePermission = "view" | "edit";
 
 export interface CalendarSummary {

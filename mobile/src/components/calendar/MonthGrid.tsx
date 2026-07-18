@@ -9,7 +9,7 @@ import DayCell from "./DayCell";
 export default function MonthGrid() {
   const language = useLanguage();
   const t = getTranslations(language);
-  const { cells, eventsForDate } = useCalendar();
+  const { cells, eventsForDate, isMerged, calendarMarkColorClass } = useCalendar();
 
   const today = new Date();
   const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
@@ -25,6 +25,8 @@ export default function MonthGrid() {
           weekdayIndex={index % 7}
           isToday={dateKey === todayKey}
           events={eventsForDate(dateKey)}
+          isMerged={isMerged}
+          calendarMarkColorClass={calendarMarkColorClass}
           onPress={() => router.push(`/day/${dateKey}`)}
           t={t}
         />

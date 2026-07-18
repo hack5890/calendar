@@ -8,18 +8,29 @@ import { useLanguage } from "@/lib/i18n/useLanguage";
 import DayEventList from "@/components/events/DayEventList";
 import EventForm from "@/components/events/EventForm";
 import ConfirmDeleteDialog from "@/components/events/ConfirmDeleteDialog";
-import type { CalendarEvent } from "@/lib/types";
+import type { OwnedEvent } from "@/lib/types";
 
 export default function DayScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const language = useLanguage();
   const t = useMemo(() => getTranslations(language), [language]);
-  const { eventsForDate, canEdit, saveEvent, deleteEvent } = useCalendar();
+  const {
+    eventsForDate,
+    calendars,
+    isMerged,
+    editableCalendars,
+    editableOwnerIds,
+    defaultTargetOwnerId,
+    calendarMarkColorClass,
+    saveEvent,
+    deleteEvent,
+  } = useCalendar();
 
-  const [editing, setEditing] = useState<CalendarEvent | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<CalendarEvent | null>(null);
+  const [editing, setEditing] = useState<OwnedEvent | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<OwnedEvent | null>(null);
 
   const events = eventsForDate(date);
+  const canAddNew = editableCalendars.length > 0;
 
   return (
     <SafeAreaView className="flex-1 bg-background dark:bg-background-dark">
@@ -38,21 +49,28 @@ export default function DayScreen() {
 
           <DayEventList
             events={events}
-            canEdit={canEdit}
+            editableOwnerIds={editableOwnerIds}
+            isMerged={isMerged}
+            calendars={calendars}
+            calendarMarkColorClass={calendarMarkColorClass}
             onEdit={setEditing}
             onRequestDelete={setConfirmTarget}
             t={t}
           />
 
-          {canEdit && (
+          {canAddNew && (
             <EventForm
               key={editing?.id ?? "new"}
               date={date}
               editing={editing}
+              targetCalendars={editableCalendars}
+              isMerged={isMerged}
+              defaultOwnerId={defaultTargetOwnerId}
+              calendarMarkColorClass={calendarMarkColorClass}
               onCancelEdit={() => setEditing(null)}
               t={t}
-              onSubmit={(event, isEditing) => {
-                saveEvent(event, isEditing);
+              onSubmit={(event, isEditing, ownerId) => {
+                saveEvent({ ...event, ownerId }, isEditing);
                 setEditing(null);
               }}
             />
@@ -64,7 +82,7 @@ export default function DayScreen() {
         visible={confirmTarget !== null}
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {
-          if (confirmTarget) deleteEvent(confirmTarget.id);
+          if (confirmTarget) deleteEvent(confirmTarget.id, confirmTarget.ownerId);
           setConfirmTarget(null);
         }}
         t={t}

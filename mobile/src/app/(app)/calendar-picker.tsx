@@ -22,7 +22,7 @@ export default function CalendarPickerScreen() {
           </Text>
         </Pressable>
       </View>
-      <CalendarPickerList onSelect={() => router.back()} />
+      <CalendarPickerList />
     </SafeAreaView>
   );
 }

@@ -10,28 +10,33 @@ import {
 import * as calendarsApi from "@/lib/api/calendars";
 import { buildMonthGrid, eventOccursOnDate, type MonthGridCell } from "@/lib/calendarLogic";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { CalendarEvent, CalendarSummary } from "@/lib/types";
+import { EVENT_COLORS, EVENT_COLOR_CLASSES } from "@/lib/eventColors";
+import type { CalendarSummary, OwnedEvent } from "@/lib/types";
 
 interface CalendarContextValue {
   calendars: CalendarSummary[];
-  selectedOwnerId: string | null;
+  selectedOwnerIds: string[];
   selectedCalendar: CalendarSummary | null;
+  isMerged: boolean;
   isOwnSelected: boolean;
-  canEdit: boolean;
-  selectCalendar: (ownerId: string) => void;
+  editableCalendars: CalendarSummary[];
+  editableOwnerIds: Set<string>;
+  defaultTargetOwnerId: string | undefined;
+  toggleCalendar: (ownerId: string) => void;
+  calendarMarkColorClass: (ownerId: string) => string;
   year: number;
   month: number;
   cells: MonthGridCell[];
   goPrevMonth: () => void;
   goNextMonth: () => void;
   goToday: () => void;
-  events: CalendarEvent[];
-  eventsForDate: (dateKey: string) => CalendarEvent[];
+  events: OwnedEvent[];
+  eventsForDate: (dateKey: string) => OwnedEvent[];
   loading: boolean;
   refreshCalendars: () => Promise<void>;
   refreshEvents: () => Promise<void>;
-  saveEvent: (event: CalendarEvent, isEditing: boolean) => Promise<void>;
-  deleteEvent: (id: string) => Promise<void>;
+  saveEvent: (event: OwnedEvent, isEditing: boolean) => Promise<void>;
+  deleteEvent: (id: string, ownerId: string) => Promise<void>;
 }
 
 const CalendarContext = createContext<CalendarContextValue | null>(null);
@@ -40,30 +45,37 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const [calendars, setCalendars] = useState<CalendarSummary[]>([]);
-  const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>([]);
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth());
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [events, setEvents] = useState<OwnedEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshCalendars = useCallback(async () => {
     const list = await calendarsApi.getCalendars();
     setCalendars(list);
-    setSelectedOwnerId((prev) => prev ?? user?.id ?? list[0]?.ownerId ?? null);
+    setSelectedOwnerIds((prev) =>
+      prev.length > 0 ? prev : [user?.id ?? list[0]?.ownerId].filter((id): id is string => Boolean(id))
+    );
   }, [user?.id]);
 
   const refreshEvents = useCallback(async () => {
-    if (!selectedOwnerId) return;
+    if (selectedOwnerIds.length === 0) return;
     setLoading(true);
     try {
-      const list = await calendarsApi.getEvents(selectedOwnerId);
-      setEvents(list);
+      const results = await Promise.all(
+        selectedOwnerIds.map(async (ownerId) => {
+          const list = await calendarsApi.getEvents(ownerId);
+          return list.map((e) => ({ ...e, ownerId }));
+        })
+      );
+      setEvents(results.flat());
     } finally {
       setLoading(false);
     }
-  }, [selectedOwnerId]);
+  }, [selectedOwnerIds]);
 
-  // 마운트 시(및 selectedOwnerId 변경 시) 1회 데이터 로드 — 표준 fetch-on-mount 패턴.
+  // 마운트 시(및 selectedOwnerIds 변경 시) 1회 데이터 로드 — 표준 fetch-on-mount 패턴.
   useEffect(() => {
     refreshCalendars();
   }, [refreshCalendars]);
@@ -72,8 +84,15 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     refreshEvents();
   }, [refreshEvents]);
 
-  function selectCalendar(ownerId: string) {
-    setSelectedOwnerId(ownerId);
+  // 겹쳐볼 캘린더를 켜고 끈다. 최소 하나는 항상 선택돼 있어야 한다.
+  // src/components/Calendar.tsx의 toggleCalendar와 동일한 규칙.
+  function toggleCalendar(ownerId: string) {
+    setSelectedOwnerIds((prev) => {
+      const next = prev.includes(ownerId)
+        ? prev.filter((id) => id !== ownerId)
+        : [...prev, ownerId];
+      return next.length === 0 ? prev : next;
+    });
   }
 
   function goPrevMonth() {
@@ -115,38 +134,61 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   // 낙관적 업데이트: 로컬 상태를 먼저 갱신하고 API를 호출한다(실패해도 롤백하지 않음 —
   // 웹 버전 Calendar.tsx의 handleSave/handleDelete와 동일한 기존 동작을 유지).
-  const saveEvent = useCallback(
-    async (event: CalendarEvent, isEditing: boolean) => {
-      if (!selectedOwnerId) return;
-      setEvents((prev) => [...prev.filter((e) => e.id !== event.id), event]);
-      if (isEditing) {
-        await calendarsApi.updateEvent(selectedOwnerId, event);
-      } else {
-        await calendarsApi.createEvent(selectedOwnerId, event);
-      }
+  const saveEvent = useCallback(async (event: OwnedEvent, isEditing: boolean) => {
+    setEvents((prev) => [...prev.filter((e) => e.id !== event.id), event]);
+    if (isEditing) {
+      await calendarsApi.updateEvent(event.ownerId, event);
+    } else {
+      await calendarsApi.createEvent(event.ownerId, event);
+    }
+  }, []);
+
+  const deleteEvent = useCallback(async (id: string, ownerId: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    await calendarsApi.deleteEvent(ownerId, id);
+  }, []);
+
+  // 캘린더 고유 색상(마커): 겹쳐볼 때 어느 캘린더의 이벤트인지 구분하기 위한 표시.
+  // src/components/Calendar.tsx의 calendarMarkColorClass와 동일한 규칙.
+  const calendarMarkColorClass = useCallback(
+    (ownerId: string) => {
+      const idx = Math.max(0, calendars.findIndex((c) => c.ownerId === ownerId));
+      return EVENT_COLOR_CLASSES[EVENT_COLORS[idx % EVENT_COLORS.length]].dot;
     },
-    [selectedOwnerId]
+    [calendars]
   );
 
-  const deleteEvent = useCallback(
-    async (id: string) => {
-      if (!selectedOwnerId) return;
-      setEvents((prev) => prev.filter((e) => e.id !== id));
-      await calendarsApi.deleteEvent(selectedOwnerId, id);
-    },
-    [selectedOwnerId]
+  const isMerged = selectedOwnerIds.length > 1;
+  const isOwnSelected =
+    selectedOwnerIds.length === 1 && selectedOwnerIds[0] === user?.id;
+
+  const editableCalendars = useMemo(
+    () => calendars.filter((c) => selectedOwnerIds.includes(c.ownerId) && c.permission === "edit"),
+    [calendars, selectedOwnerIds]
   );
+  const editableOwnerIds = useMemo(
+    () => new Set(editableCalendars.map((c) => c.ownerId)),
+    [editableCalendars]
+  );
+  const defaultTargetOwnerId =
+    user && editableOwnerIds.has(user.id) ? user.id : editableCalendars[0]?.ownerId;
 
   const selectedCalendar =
-    calendars.find((c) => c.ownerId === selectedOwnerId) ?? null;
+    selectedOwnerIds.length === 1
+      ? calendars.find((c) => c.ownerId === selectedOwnerIds[0]) ?? null
+      : null;
 
   const value: CalendarContextValue = {
     calendars,
-    selectedOwnerId,
+    selectedOwnerIds,
     selectedCalendar,
-    isOwnSelected: selectedCalendar?.isOwn ?? false,
-    canEdit: selectedCalendar?.permission === "edit",
-    selectCalendar,
+    isMerged,
+    isOwnSelected,
+    editableCalendars,
+    editableOwnerIds,
+    defaultTargetOwnerId,
+    toggleCalendar,
+    calendarMarkColorClass,
     year,
     month,
     cells,

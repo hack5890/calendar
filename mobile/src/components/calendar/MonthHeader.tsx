@@ -2,24 +2,26 @@ import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useCalendar } from "@/lib/calendar/CalendarContext";
+import { calendarLabel } from "@/lib/calendarLogic";
 import { getTranslations } from "@/lib/i18n";
 import { useLanguage } from "@/lib/i18n/useLanguage";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-
-function calendarLabel(
-  t: ReturnType<typeof getTranslations>,
-  calendar: { isOwn: boolean; ownerUsername: string } | null
-) {
-  if (!calendar) return "";
-  return calendar.isOwn ? t.myCalendar : t.calendarOf(calendar.ownerUsername);
-}
 
 export default function MonthHeader() {
   const language = useLanguage();
   const t = getTranslations(language);
   const { user, logout } = useAuth();
-  const { year, month, selectedCalendar, isOwnSelected, goPrevMonth, goNextMonth, goToday } =
-    useCalendar();
+  const {
+    year,
+    month,
+    selectedCalendar,
+    selectedOwnerIds,
+    isMerged,
+    isOwnSelected,
+    goPrevMonth,
+    goNextMonth,
+    goToday,
+  } = useCalendar();
 
   const monthTitle = new Date(year, month).toLocaleString(t.locale, {
     month: "long",
@@ -34,7 +36,7 @@ export default function MonthHeader() {
           className="flex-row items-center gap-1.5 rounded-lg border border-black/10 dark:border-white/15 px-2.5 py-1.5"
         >
           <Text className="text-sm text-foreground dark:text-foreground-dark">
-            {calendarLabel(t, selectedCalendar)}
+            {isMerged ? t.multipleCalendars(selectedOwnerIds.length) : calendarLabel(t, selectedCalendar)}
           </Text>
           <Text className="text-xs opacity-50 text-foreground dark:text-foreground-dark">▾</Text>
         </Pressable>
