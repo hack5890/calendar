@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { Trash2, X } from "lucide-react";
 import {
   getMyShares,
   shareCalendar,
@@ -22,12 +23,19 @@ export default function ShareModal({ onClose, t }: ShareModalProps) {
   const [username, setUsername] = useState("");
   const [permission, setPermission] = useState<SharePermission>("view");
   const [error, setError] = useState<string | null>(null);
+  // 모바일 바텀시트의 슬라이드업 진입 애니메이션 트리거.
+  const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     getMyShares().then((s) => {
       setShares(s);
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -50,23 +58,27 @@ export default function ShareModal({ onClose, t }: ShareModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden"
+        className={[
+          "w-full sm:max-w-sm rounded-t-xl sm:rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden",
+          "transition-transform duration-300 ease-out sm:transition-none sm:translate-y-0",
+          entered ? "translate-y-0" : "translate-y-full",
+        ].join(" ")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-1.5 bg-accent" />
-        <div className="p-5">
+        <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold">{t.shareTitle}</h2>
             <button
               onClick={onClose}
-              className="text-sm opacity-60 hover:opacity-100 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+              className="min-w-11 min-h-11 flex items-center justify-center opacity-60 hover:opacity-100 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               aria-label={t.close}
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -90,10 +102,10 @@ export default function ShareModal({ onClose, t }: ShareModalProps) {
                   </span>
                   <button
                     onClick={() => handleRevoke(s.sharedWithId)}
-                    className="opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                    className="min-w-11 min-h-11 flex items-center justify-center shrink-0 opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                     aria-label={t.revoke}
                   >
-                    🗑
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </li>
               ))}

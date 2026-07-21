@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Repeat, Trash2, X } from "lucide-react";
 import type { CalendarEvent, RecurrenceFrequency } from "@/lib/types";
 import type { CalendarSummary } from "@/lib/actions";
 import type { OwnedEvent } from "./Calendar";
@@ -76,6 +77,14 @@ export default function EventModal({
   } | null>(null);
   const canAddNew = targetCalendars.length > 0;
 
+  // 모바일 바텀시트의 슬라이드업 진입 애니메이션 트리거. 마운트 직후 한 프레임 뒤에
+  // translate-y를 0으로 바꿔 transition이 실제로 재생되도록 한다.
+  const [mainEntered, setMainEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMainEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   // 입력 폼 상태를 초기화하고 수정 모드를 해제한다(새 이벤트 입력 상태로 되돌림).
   function resetForm() {
     setEditingId(null);
@@ -132,23 +141,27 @@ export default function EventModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
         onClick={onClose}
       >
         <div
-          className="w-full max-w-sm rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden"
+          className={[
+            "w-full sm:max-w-sm rounded-t-xl sm:rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden",
+            "transition-transform duration-300 ease-out sm:transition-none sm:translate-y-0",
+            mainEntered ? "translate-y-0" : "translate-y-full",
+          ].join(" ")}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-1.5 bg-accent" />
-          <div className="p-5">
+          <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">{date}</h2>
               <button
                 onClick={onClose}
-                className="text-sm opacity-60 hover:opacity-100 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                className="min-w-11 min-h-11 flex items-center justify-center opacity-60 hover:opacity-100 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                 aria-label={t.close}
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -189,12 +202,12 @@ export default function EventModal({
                       )}
                       {ev.repeat && (
                         <span
-                          className="mr-1 text-repeat-accent"
+                          className="mr-1 text-repeat-accent inline-flex align-middle"
                           title={`${t.repeatEvery} ${
                             ev.repeatInterval ?? 1
                           } ${t.repeatUnits[ev.repeat]}`}
                         >
-                          ↻
+                          <Repeat className="w-4 h-4" />
                         </span>
                       )}
                       <span className="font-medium">{ev.title}</span>
@@ -218,10 +231,10 @@ export default function EventModal({
                         onClick={() =>
                           setConfirmDelete({ id: ev.id, ownerId: ev.ownerId })
                         }
-                        className="opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                        className="min-w-11 min-h-11 flex items-center justify-center shrink-0 opacity-60 hover:opacity-100 hover:text-red-500 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                         aria-label={t.deleteEvent}
                       >
-                        🗑
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </li>
@@ -277,12 +290,16 @@ export default function EventModal({
                     onClick={() => setColor(undefined)}
                     aria-label={t.colorNone}
                     aria-pressed={color === undefined}
-                    className={[
-                      "w-6 h-6 rounded-full border border-black/20 dark:border-white/25 flex items-center justify-center text-[10px] opacity-70 hover:opacity-100 transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                      color === undefined ? "ring-2 ring-offset-1 ring-accent" : "",
-                    ].join(" ")}
+                    className="min-w-11 min-h-11 flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
-                    ✕
+                    <span
+                      className={[
+                        "w-6 h-6 rounded-full border border-black/20 dark:border-white/25 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity",
+                        color === undefined ? "ring-2 ring-offset-1 ring-accent" : "",
+                      ].join(" ")}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </span>
                   </button>
                   {EVENT_COLORS.map((c) => (
                     <button
@@ -292,14 +309,18 @@ export default function EventModal({
                       aria-label={t.colorNames[c]}
                       aria-pressed={color === c}
                       title={t.colorNames[c]}
-                      className={[
-                        "w-6 h-6 rounded-full transition-transform outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                        EVENT_COLOR_CLASSES[c].dot,
-                        color === c
-                          ? "ring-2 ring-offset-1 ring-black/40 dark:ring-white/60 scale-110"
-                          : "hover:scale-110",
-                      ].join(" ")}
-                    />
+                      className="min-w-11 min-h-11 flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      <span
+                        className={[
+                          "w-6 h-6 rounded-full transition-transform",
+                          EVENT_COLOR_CLASSES[c].dot,
+                          color === c
+                            ? "ring-2 ring-offset-1 ring-black/40 dark:ring-white/60 scale-110"
+                            : "hover:scale-110",
+                        ].join(" ")}
+                      />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -370,40 +391,79 @@ export default function EventModal({
       </div>
 
       {confirmDelete && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full max-w-xs rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="h-1.5 bg-red-600" />
-            <div className="p-5">
-              <p className="text-sm mb-4">{t.confirmDelete}</p>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(null)}
-                  className="px-3 py-1.5 text-sm rounded-lg opacity-70 hover:opacity-100"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onDelete(confirmDelete.id, confirmDelete.ownerId);
-                    setConfirmDelete(null);
-                  }}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                  {t.deleteAction}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteSheet
+          key={`${confirmDelete.ownerId}-${confirmDelete.id}`}
+          message={t.confirmDelete}
+          cancelLabel={t.cancel}
+          deleteLabel={t.deleteAction}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => {
+            onDelete(confirmDelete.id, confirmDelete.ownerId);
+            setConfirmDelete(null);
+          }}
+        />
       )}
     </>
+  );
+}
+
+interface ConfirmDeleteSheetProps {
+  message: string;
+  cancelLabel: string;
+  deleteLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+// 삭제 확인 바텀시트. confirmDelete가 바뀔 때마다 key로 새로 마운트되어
+// 매번 슬라이드업 진입 애니메이션이 재생된다.
+function ConfirmDeleteSheet({
+  message,
+  cancelLabel,
+  deleteLabel,
+  onCancel,
+  onConfirm,
+}: ConfirmDeleteSheetProps) {
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
+      onClick={onCancel}
+    >
+      <div
+        className={[
+          "w-full sm:max-w-xs rounded-t-xl sm:rounded-xl bg-background text-foreground border border-black/10 dark:border-white/15 shadow-2xl overflow-hidden",
+          "transition-transform duration-300 ease-out sm:transition-none sm:translate-y-0",
+          entered ? "translate-y-0" : "translate-y-full",
+        ].join(" ")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-1.5 bg-red-600" />
+        <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
+          <p className="text-sm mb-4">{message}</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3 py-1.5 text-sm rounded-lg opacity-70 hover:opacity-100"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+            >
+              {deleteLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
