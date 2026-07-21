@@ -1,12 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { jsonData, jsonError } from "@/lib/server/apiResponse";
 import { requireCalendarAccess } from "@/lib/server/apiAuth";
-import {
-  deleteEvent,
-  getEventTitle,
-  logActivity,
-  saveEvent,
-} from "@/lib/server/db";
+import { createOrUpdateEventWithLog, deleteEventWithLog } from "@/lib/server/eventOps";
 import { validateEventBody } from "@/lib/server/validateEvent";
 
 type Params = { params: Promise<{ ownerId: string; eventId: string }> };
@@ -25,8 +20,7 @@ export async function PUT(request: Request, { params }: Params) {
     return jsonError("invalid_body", "본문의 id가 경로의 eventId와 일치하지 않습니다.", 400);
   }
 
-  saveEvent(result.event, ownerId);
-  logActivity(ownerId, auth.user.id, "updated", result.event.title);
+  createOrUpdateEventWithLog(result.event, ownerId, auth.user.id);
   revalidatePath("/");
   return jsonData({ success: true });
 }
@@ -36,11 +30,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   const auth = await requireCalendarAccess(ownerId, "edit");
   if (!auth.ok) return auth.response;
 
-  const title = getEventTitle(eventId, ownerId);
-  deleteEvent(eventId, ownerId);
-  if (title !== undefined) {
-    logActivity(ownerId, auth.user.id, "deleted", title);
-  }
+  deleteEventWithLog(eventId, ownerId, auth.user.id);
   revalidatePath("/");
   return jsonData({ success: true });
 }

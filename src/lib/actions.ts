@@ -3,13 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  deleteEvent as dbDeleteEvent,
-  eventExists,
   getActivityLog as dbGetActivityLog,
   getAllEvents as dbGetAllEvents,
-  getEventTitle,
-  logActivity,
-  saveEvent as dbSaveEvent,
   upsertShare,
   deleteShare,
   getUserByUsername,
@@ -17,6 +12,7 @@ import {
   listSharedWithUser,
   type SharePermission,
 } from "@/lib/server/db";
+import { createOrUpdateEventWithLog, deleteEventWithLog } from "@/lib/server/eventOps";
 
 export type { SharePermission } from "@/lib/server/db";
 import {
@@ -121,19 +117,13 @@ export async function saveEvent(
   ownerId: string
 ): Promise<void> {
   const actorId = await authorizeCalendar(ownerId, "edit");
-  const isNew = !eventExists(event.id, ownerId);
-  dbSaveEvent(event, ownerId);
-  logActivity(ownerId, actorId, isNew ? "created" : "updated", event.title);
+  createOrUpdateEventWithLog(event, ownerId, actorId);
   revalidatePath("/");
 }
 
 export async function deleteEvent(id: string, ownerId: string): Promise<void> {
   const actorId = await authorizeCalendar(ownerId, "edit");
-  const title = getEventTitle(id, ownerId);
-  dbDeleteEvent(id, ownerId);
-  if (title !== undefined) {
-    logActivity(ownerId, actorId, "deleted", title);
-  }
+  deleteEventWithLog(id, ownerId, actorId);
   revalidatePath("/");
 }
 
