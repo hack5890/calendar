@@ -61,6 +61,50 @@ export function buildMonthGrid(year: number, month: number): MonthGridCell[] {
   return cells;
 }
 
+// dateKey를 기준으로 days만큼(음수면 과거로) 이동한 날짜의 dateKey를 반환한다.
+// src/lib/calendarLogic.ts의 shiftDateKey와 동일한 알고리즘 — 반드시 그대로 유지할 것.
+export function shiftDateKey(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return toDateKey(dt.getFullYear(), dt.getMonth(), dt.getDate());
+}
+
+// 특정 날짜(dateKey)가 속한 주(일~토)의 7일치 dateKey 배열을 만든다. 주간 뷰에서 사용한다.
+// src/lib/calendarLogic.ts의 buildWeekRange와 동일한 알고리즘 — 반드시 그대로 유지할 것.
+export function buildWeekRange(dateKey: string): string[] {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const base = new Date(y, m - 1, d);
+  const sunday = new Date(base);
+  sunday.setDate(base.getDate() - base.getDay());
+  const result: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const dt = new Date(sunday);
+    dt.setDate(sunday.getDate() + i);
+    result.push(toDateKey(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  }
+  return result;
+}
+
+// 주간 뷰 헤더에 표시할 날짜 범위 레이블(예: "Jul 13 – 19, 2026")을 만든다.
+// src/lib/calendarLogic.ts의 formatWeekRangeLabel과 동일한 알고리즘 — 반드시 그대로 유지할 것.
+export function formatWeekRangeLabel(weekDates: string[], locale: string): string {
+  const start = weekDates[0];
+  const end = weekDates[weekDates.length - 1];
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const startDate = new Date(sy, sm - 1, sd);
+  const endDate = new Date(ey, em - 1, ed);
+  const startLabel = startDate.toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+  });
+  const endLabel = endDate.toLocaleDateString(
+    locale,
+    sy === ey && sm === em ? { day: "numeric" } : { month: "short", day: "numeric" }
+  );
+  return `${startLabel} – ${endLabel}, ${ey}`;
+}
+
 // 일정이 주어진 날짜(dateKey)에 발생하는지 판단한다.
 // src/components/Calendar.tsx의 eventOccursOnDate와 동일한 알고리즘 — 반드시 그대로 유지할 것.
 // (월말 보정/윤년 폴백 없음, 로컬 타임존 기준, repeatUntil은 포함 상한)

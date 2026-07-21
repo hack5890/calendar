@@ -30,13 +30,14 @@ export default function ConfirmDeleteDialog({
               {t.confirmDelete}
             </Text>
             <View className="flex-row justify-end gap-2">
-              <Pressable onPress={onCancel} className="px-3 py-1.5 rounded-lg">
+              <Pressable onPress={onCancel} hitSlop={8} className="px-3 py-1.5 rounded-lg">
                 <Text className="text-sm opacity-70 text-foreground dark:text-foreground-dark">
                   {t.cancel}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={onConfirm}
+                hitSlop={8}
                 className="px-3 py-1.5 rounded-lg bg-red-600"
               >
                 <Text className="text-sm font-medium text-white">{t.deleteAction}</Text>

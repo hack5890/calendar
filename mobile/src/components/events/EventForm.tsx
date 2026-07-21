@@ -241,7 +241,7 @@ export default function EventForm({
 
       <View className="flex-row justify-end gap-2 pt-1">
         {editing && (
-          <Pressable onPress={onCancelEdit} className="px-3 py-1.5 rounded-lg">
+          <Pressable onPress={onCancelEdit} hitSlop={8} className="px-3 py-1.5 rounded-lg">
             <Text className="text-sm opacity-70 text-foreground dark:text-foreground-dark">
               {t.cancelEdit}
             </Text>
@@ -250,6 +250,7 @@ export default function EventForm({
         <Pressable
           onPress={handleSubmit}
           disabled={!title.trim() || !ownerId}
+          hitSlop={8}
           className="px-3 py-1.5 rounded-lg bg-accent dark:bg-accent-dark"
         >
           <Text className="text-sm font-medium text-accent-foreground dark:text-accent-foreground-dark">

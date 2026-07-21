@@ -8,11 +8,20 @@ import {
   type ReactNode,
 } from "react";
 import * as calendarsApi from "@/lib/api/calendars";
-import { buildMonthGrid, eventOccursOnDate, type MonthGridCell } from "@/lib/calendarLogic";
+import {
+  buildMonthGrid,
+  buildWeekRange,
+  eventOccursOnDate,
+  shiftDateKey,
+  toDateKey,
+  type MonthGridCell,
+} from "@/lib/calendarLogic";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { EVENT_COLORS, EVENT_COLOR_CLASSES } from "@/lib/eventColors";
 import { useEventReminders } from "@/lib/notifications/useEventReminders";
 import type { CalendarSummary, OwnedEvent } from "@/lib/types";
+
+export type CalendarViewMode = "month" | "week";
 
 interface CalendarContextValue {
   calendars: CalendarSummary[];
@@ -31,6 +40,11 @@ interface CalendarContextValue {
   goPrevMonth: () => void;
   goNextMonth: () => void;
   goToday: () => void;
+  view: CalendarViewMode;
+  setView: (view: CalendarViewMode) => void;
+  weekDates: string[];
+  goPrevWeek: () => void;
+  goNextWeek: () => void;
   events: OwnedEvent[];
   eventsForDate: (dateKey: string) => OwnedEvent[];
   loading: boolean;
@@ -51,6 +65,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [month, setMonth] = useState(() => new Date().getMonth());
   const [events, setEvents] = useState<OwnedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<CalendarViewMode>("month");
+  const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
+    const now = new Date();
+    return toDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+  });
 
   const refreshCalendars = useCallback(async () => {
     const list = await calendarsApi.getCalendars();
@@ -118,13 +137,25 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  // 오늘이 속한 연/월과 오늘이 속한 주로 돌아간다(뷰와 무관하게 둘 다 갱신).
+  // src/components/Calendar.tsx의 goToToday와 동일한 규칙.
   function goToday() {
     const today = new Date();
     setYear(today.getFullYear());
     setMonth(today.getMonth());
+    setWeekAnchorDate(toDateKey(today.getFullYear(), today.getMonth(), today.getDate()));
+  }
+
+  function goPrevWeek() {
+    setWeekAnchorDate((d) => shiftDateKey(d, -7));
+  }
+
+  function goNextWeek() {
+    setWeekAnchorDate((d) => shiftDateKey(d, 7));
   }
 
   const cells = useMemo(() => buildMonthGrid(year, month), [year, month]);
+  const weekDates = useMemo(() => buildWeekRange(weekAnchorDate), [weekAnchorDate]);
 
   const eventsForDate = useCallback(
     (dateKey: string) => {
@@ -198,6 +229,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     goPrevMonth,
     goNextMonth,
     goToday,
+    view,
+    setView,
+    weekDates,
+    goPrevWeek,
+    goNextWeek,
     events,
     eventsForDate,
     loading,

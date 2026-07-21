@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from "react-native";
+import { Trash2 } from "lucide-react-native";
 import { getTranslations } from "@/lib/i18n";
+import { useIconColor } from "@/lib/useIconColor";
 import type { ShareSummary } from "@/lib/types";
 
 interface ShareListProps {
@@ -9,6 +11,8 @@ interface ShareListProps {
 }
 
 export default function ShareList({ shares, onRevoke, t }: ShareListProps) {
+  const mutedColor = useIconColor();
+
   if (shares.length === 0) {
     return (
       <Text className="text-xs opacity-60 mb-4 text-foreground dark:text-foreground-dark">
@@ -28,8 +32,14 @@ export default function ShareList({ shares, onRevoke, t }: ShareListProps) {
             {s.sharedWithUsername}
             <Text className="text-[11px] opacity-60"> ({s.permission === "edit" ? t.permissionEdit : t.permissionView})</Text>
           </Text>
-          <Pressable onPress={() => onRevoke(s.sharedWithId)} accessibilityLabel={t.revoke}>
-            <Text className="opacity-60">🗑</Text>
+          <Pressable
+            onPress={() => onRevoke(s.sharedWithId)}
+            accessibilityLabel={t.revoke}
+            hitSlop={16}
+          >
+            <View style={{ opacity: 0.6 }}>
+              <Trash2 size={16} color={mutedColor} />
+            </View>
           </Pressable>
         </View>
       ))}

@@ -1,6 +1,8 @@
 import { Pressable, Text, View } from "react-native";
+import { Repeat } from "lucide-react-native";
 import { EVENT_COLOR_CLASSES } from "@/lib/eventColors";
 import { getTranslations } from "@/lib/i18n";
+import { useIconColor } from "@/lib/useIconColor";
 import type { OwnedEvent } from "@/lib/types";
 
 interface DayCellProps {
@@ -29,6 +31,7 @@ export default function DayCell({
 }: DayCellProps) {
   const visible = events.slice(0, 2);
   const hiddenCount = events.length - visible.length;
+  const repeatColor = useIconColor("repeatAccent");
 
   return (
     <Pressable
@@ -78,6 +81,7 @@ export default function DayCell({
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${calendarMarkColorClass(ev.ownerId)}`}
                 />
               )}
+              {ev.repeat && <Repeat size={7} color={repeatColor} />}
               <Text
                 numberOfLines={1}
                 className={`flex-1 text-[9px] leading-tight ${
@@ -88,7 +92,6 @@ export default function DayCell({
                       : "text-accent dark:text-accent-dark"
                 }`}
               >
-                {ev.repeat ? "↻ " : ""}
                 {ev.time ? `${ev.time} ` : ""}
                 {ev.title}
               </Text>

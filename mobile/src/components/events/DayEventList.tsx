@@ -1,7 +1,9 @@
 import { Pressable, Text, View } from "react-native";
+import { Repeat, Trash2 } from "lucide-react-native";
 import { EVENT_COLOR_CLASSES } from "@/lib/eventColors";
 import { calendarLabel } from "@/lib/calendarLogic";
 import { getTranslations } from "@/lib/i18n";
+import { useIconColor } from "@/lib/useIconColor";
 import type { CalendarSummary, OwnedEvent } from "@/lib/types";
 
 interface DayEventListProps {
@@ -25,6 +27,9 @@ export default function DayEventList({
   onRequestDelete,
   t,
 }: DayEventListProps) {
+  const repeatColor = useIconColor("repeatAccent");
+  const mutedColor = useIconColor();
+
   if (events.length === 0) {
     return (
       <Text className="text-sm opacity-60 mb-3 text-foreground dark:text-foreground-dark">
@@ -50,11 +55,7 @@ export default function DayEventList({
                 {ev.color && (
                   <View className={`w-2 h-2 rounded-full ${EVENT_COLOR_CLASSES[ev.color].dot}`} />
                 )}
-                {ev.repeat && (
-                  <Text className="text-repeat-accent dark:text-repeat-accent-dark text-xs">
-                    ↻
-                  </Text>
-                )}
+                {ev.repeat && <Repeat size={12} color={repeatColor} />}
                 <Text className="font-medium text-sm text-foreground dark:text-foreground-dark">
                   {ev.title}
                 </Text>
@@ -74,8 +75,14 @@ export default function DayEventList({
               )}
             </Pressable>
             {canEdit && (
-              <Pressable onPress={() => onRequestDelete(ev)} accessibilityLabel={t.deleteEvent}>
-                <Text className="opacity-60">🗑</Text>
+              <Pressable
+                onPress={() => onRequestDelete(ev)}
+                accessibilityLabel={t.deleteEvent}
+                hitSlop={16}
+              >
+                <View style={{ opacity: 0.6 }}>
+                  <Trash2 size={16} color={mutedColor} />
+                </View>
               </Pressable>
             )}
           </View>
