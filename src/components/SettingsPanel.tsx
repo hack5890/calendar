@@ -19,6 +19,8 @@ interface SettingsPanelProps {
   currentUsername: string;
   isOwnCalendarSelected: boolean;
   onShareClick: () => void;
+  // 겹쳐보기 중이 아닐 때만 전달된다(활동 로그는 단일 캘린더 기준이므로).
+  onActivityLogClick?: () => void;
   onLogout: () => void;
   language: Language;
   t: Translations;
@@ -40,6 +42,7 @@ export default function SettingsPanel({
   currentUsername,
   isOwnCalendarSelected,
   onShareClick,
+  onActivityLogClick,
   onLogout,
   language,
   t,
@@ -103,6 +106,14 @@ export default function SettingsPanel({
             className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             {t.share}
+          </button>
+        )}
+        {onActivityLogClick && (
+          <button
+            onClick={onActivityLogClick}
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-black/10 dark:border-white/15 hover:bg-accent/10 hover:border-accent/40 hover:text-accent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {t.activityLog}
           </button>
         )}
         <button

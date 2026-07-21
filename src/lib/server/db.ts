@@ -22,7 +22,8 @@ db.exec(`
     repeat_interval INTEGER,
     repeat_until TEXT,
     color TEXT,
-    owner_id TEXT
+    owner_id TEXT,
+    reminder_minutes_before INTEGER
   );
   CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 
@@ -48,6 +49,16 @@ db.exec(`
     UNIQUE(owner_id, shared_with_id)
   );
   CREATE INDEX IF NOT EXISTS idx_shares_shared_with ON calendar_shares(shared_with_id);
+
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL REFERENCES users(id),
+    actor_id TEXT NOT NULL REFERENCES users(id),
+    action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted')),
+    event_title TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_activity_owner ON activity_log(owner_id, created_at DESC);
 `);
 
 // 기존에 생성된 DB 파일에는 아래 컬럼들이 없을 수 있으므로 마이그레이션한다.
@@ -71,6 +82,9 @@ if (!existingColumns.has("color")) {
 if (!existingColumns.has("owner_id")) {
   db.exec("ALTER TABLE events ADD COLUMN owner_id TEXT");
 }
+if (!existingColumns.has("reminder_minutes_before")) {
+  db.exec("ALTER TABLE events ADD COLUMN reminder_minutes_before INTEGER");
+}
 
 interface EventRow {
   id: string;
@@ -83,6 +97,7 @@ interface EventRow {
   repeat_until: string | null;
   color: string | null;
   owner_id: string | null;
+  reminder_minutes_before: number | null;
 }
 
 function rowToEvent(row: EventRow): CalendarEvent {
@@ -96,13 +111,14 @@ function rowToEvent(row: EventRow): CalendarEvent {
     repeatInterval: row.repeat_interval ?? undefined,
     repeatUntil: row.repeat_until ?? undefined,
     color: (row.color as CalendarEvent["color"]) ?? undefined,
+    reminderMinutesBefore: row.reminder_minutes_before ?? undefined,
   };
 }
 
 export function getAllEvents(ownerId: string): CalendarEvent[] {
   const rows = db
     .prepare(
-      "SELECT id, date, title, time, description, repeat, repeat_interval, repeat_until, color, owner_id FROM events WHERE owner_id = ?"
+      "SELECT id, date, title, time, description, repeat, repeat_interval, repeat_until, color, owner_id, reminder_minutes_before FROM events WHERE owner_id = ?"
     )
     .all(ownerId) as EventRow[];
   return rows.map(rowToEvent);
@@ -110,8 +126,8 @@ export function getAllEvents(ownerId: string): CalendarEvent[] {
 
 export function saveEvent(event: CalendarEvent, ownerId: string): void {
   db.prepare(
-    `INSERT INTO events (id, date, title, time, description, repeat, repeat_interval, repeat_until, color, owner_id)
-     VALUES (@id, @date, @title, @time, @description, @repeat, @repeatInterval, @repeatUntil, @color, @ownerId)
+    `INSERT INTO events (id, date, title, time, description, repeat, repeat_interval, repeat_until, color, owner_id, reminder_minutes_before)
+     VALUES (@id, @date, @title, @time, @description, @repeat, @repeatInterval, @repeatUntil, @color, @ownerId, @reminderMinutesBefore)
      ON CONFLICT(id) DO UPDATE SET
        date = excluded.date,
        title = excluded.title,
@@ -120,7 +136,8 @@ export function saveEvent(event: CalendarEvent, ownerId: string): void {
        repeat = excluded.repeat,
        repeat_interval = excluded.repeat_interval,
        repeat_until = excluded.repeat_until,
-       color = excluded.color
+       color = excluded.color,
+       reminder_minutes_before = excluded.reminder_minutes_before
      WHERE events.owner_id = @ownerId`
   ).run({
     id: event.id,
@@ -133,7 +150,23 @@ export function saveEvent(event: CalendarEvent, ownerId: string): void {
     repeatUntil: event.repeatUntil ?? null,
     color: event.color ?? null,
     ownerId,
+    reminderMinutesBefore: event.reminderMinutesBefore ?? null,
   });
+}
+
+export function getEventTitle(id: string, ownerId: string): string | undefined {
+  const row = db
+    .prepare("SELECT title FROM events WHERE id = ? AND owner_id = ?")
+    .get(id, ownerId) as { title: string } | undefined;
+  return row?.title;
+}
+
+export function eventExists(id: string, ownerId: string): boolean {
+  return (
+    db
+      .prepare("SELECT 1 FROM events WHERE id = ? AND owner_id = ?")
+      .get(id, ownerId) !== undefined
+  );
 }
 
 export function deleteEvent(id: string, ownerId: string): void {
@@ -141,6 +174,52 @@ export function deleteEvent(id: string, ownerId: string): void {
     id,
     ownerId
   );
+}
+
+export type ActivityAction = "created" | "updated" | "deleted";
+
+export interface ActivityLogEntry {
+  id: string;
+  actorId: string;
+  actorUsername: string;
+  action: ActivityAction;
+  eventTitle: string;
+  createdAt: string;
+}
+
+export function logActivity(
+  ownerId: string,
+  actorId: string,
+  action: ActivityAction,
+  eventTitle: string
+): void {
+  db.prepare(
+    `INSERT INTO activity_log (id, owner_id, actor_id, action, event_title, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    crypto.randomUUID(),
+    ownerId,
+    actorId,
+    action,
+    eventTitle,
+    new Date().toISOString()
+  );
+}
+
+export function getActivityLog(
+  ownerId: string,
+  limit = 50
+): ActivityLogEntry[] {
+  return db
+    .prepare(
+      `SELECT al.id AS id, al.actor_id AS actorId, u.username AS actorUsername,
+              al.action AS action, al.event_title AS eventTitle, al.created_at AS createdAt
+       FROM activity_log al JOIN users u ON u.id = al.actor_id
+       WHERE al.owner_id = ?
+       ORDER BY al.created_at DESC
+       LIMIT ?`
+    )
+    .all(ownerId, limit) as ActivityLogEntry[];
 }
 
 export interface User {

@@ -19,6 +19,7 @@ import {
   buildWeekRange,
   collectEventsForDate,
   eventMatchesQuery,
+  eventOccursOnDate,
   shiftDateKey,
   toDateKey,
   type OwnedEvent,
@@ -29,6 +30,7 @@ import SettingsPanel from "./SettingsPanel";
 import MobileTabBar, { type MobileTab } from "./MobileTabBar";
 import EventModal from "./EventModal";
 import ShareModal from "./ShareModal";
+import ActivityLogModal from "./ActivityLogModal";
 
 export type { OwnedEvent };
 
@@ -73,6 +75,9 @@ export default function Calendar({
   const [calendarPickerOpen, setCalendarPickerOpen] = useState(false);
   const calendarPickerRef = useRef<HTMLDivElement | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [activityLogOwnerId, setActivityLogOwnerId] = useState<string | null>(
+    null
+  );
   const [searchQuery, setSearchQuery] = useState("");
   // 월 그리드 슬라이드 전환 상태. slideDirection은 새 그리드가 어느 쪽에서 밀려 들어오는지,
   // gridEntered는 그 그리드가 최종 위치(translate-x-0)에 도달했는지를 나타낸다.
@@ -132,6 +137,55 @@ export default function Calendar({
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  // 알림이 설정된 일정을 위해 브라우저 알림 권한을 요청한다(최초 1회, 이미 결정된 경우는 건드리지 않음).
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // 발생 인스턴스가 실체화되지 않으므로, 매 tick마다 오늘 발생하는 이벤트를 직접 계산해
+  // 알림 시각이 지났는지 확인한다. 이미 알린 발생(occurrence)은 notifiedRef에 기록해 중복 알림을 막는다.
+  const notifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    function checkReminders() {
+      if (Notification.permission !== "granted") return;
+      const now = new Date();
+      const nowKey = toDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+      for (const ev of events) {
+        if (ev.reminderMinutesBefore == null || !ev.time) continue;
+        if (!eventOccursOnDate(ev, nowKey)) continue;
+        const [hh, mm] = ev.time.split(":").map(Number);
+        const eventTime = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          hh,
+          mm
+        );
+        const reminderTime = new Date(
+          eventTime.getTime() - ev.reminderMinutesBefore * 60_000
+        );
+        const notifyKey = `${ev.id}-${nowKey}`;
+        if (
+          now >= reminderTime &&
+          now < eventTime &&
+          !notifiedRef.current.has(notifyKey)
+        ) {
+          notifiedRef.current.add(notifyKey);
+          new Notification(ev.title, {
+            body: [ev.time, ev.description].filter(Boolean).join(" · "),
+          });
+        }
+      }
+    }
+    checkReminders();
+    const interval = setInterval(checkReminders, 30_000);
+    return () => clearInterval(interval);
+  }, [events]);
 
   // 현재 연/월에 맞는 달력 그리드 셀 목록을 계산한다.
   const cells = useMemo(() => buildMonthGrid(year, month), [year, month]);
@@ -336,6 +390,9 @@ export default function Calendar({
           currentUsername={currentUsername}
           isOwnCalendarSelected={isOwnCalendarSelected}
           onShareClick={() => setShareModalOpen(true)}
+          onActivityLogClick={
+            isMerged ? undefined : () => setActivityLogOwnerId(selectedOwnerIds[0])
+          }
           onLogout={handleLogout}
           language={language}
           t={t}
@@ -406,6 +463,14 @@ export default function Calendar({
 
       {shareModalOpen && (
         <ShareModal onClose={() => setShareModalOpen(false)} t={t} />
+      )}
+
+      {activityLogOwnerId && (
+        <ActivityLogModal
+          ownerId={activityLogOwnerId}
+          onClose={() => setActivityLogOwnerId(null)}
+          t={t}
+        />
       )}
     </div>
   );

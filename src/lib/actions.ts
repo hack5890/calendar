@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   deleteEvent as dbDeleteEvent,
+  eventExists,
+  getActivityLog as dbGetActivityLog,
   getAllEvents as dbGetAllEvents,
+  getEventTitle,
+  logActivity,
   saveEvent as dbSaveEvent,
   upsertShare,
   deleteShare,
@@ -52,6 +56,14 @@ export interface ShareSummary {
   sharedWithId: string;
   sharedWithUsername: string;
   permission: SharePermission;
+}
+
+export interface ActivityLogSummary {
+  id: string;
+  actorUsername: string;
+  action: "created" | "updated" | "deleted";
+  eventTitle: string;
+  createdAt: string;
 }
 
 export async function register(
@@ -108,15 +120,34 @@ export async function saveEvent(
   event: CalendarEvent,
   ownerId: string
 ): Promise<void> {
-  await authorizeCalendar(ownerId, "edit");
+  const actorId = await authorizeCalendar(ownerId, "edit");
+  const isNew = !eventExists(event.id, ownerId);
   dbSaveEvent(event, ownerId);
+  logActivity(ownerId, actorId, isNew ? "created" : "updated", event.title);
   revalidatePath("/");
 }
 
 export async function deleteEvent(id: string, ownerId: string): Promise<void> {
-  await authorizeCalendar(ownerId, "edit");
+  const actorId = await authorizeCalendar(ownerId, "edit");
+  const title = getEventTitle(id, ownerId);
   dbDeleteEvent(id, ownerId);
+  if (title !== undefined) {
+    logActivity(ownerId, actorId, "deleted", title);
+  }
   revalidatePath("/");
+}
+
+export async function getActivityLog(
+  ownerId: string
+): Promise<ActivityLogSummary[]> {
+  await authorizeCalendar(ownerId, "view");
+  return dbGetActivityLog(ownerId).map((entry) => ({
+    id: entry.id,
+    actorUsername: entry.actorUsername,
+    action: entry.action,
+    eventTitle: entry.eventTitle,
+    createdAt: entry.createdAt,
+  }));
 }
 
 export async function getMyCalendars(): Promise<CalendarSummary[]> {

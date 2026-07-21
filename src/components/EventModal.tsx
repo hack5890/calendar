@@ -16,6 +16,18 @@ const REPEAT_ORDER: (RecurrenceFrequency | "none")[] = [
   "yearly",
 ];
 
+// 알림 select 옵션. key는 i18n.reminderOptions의 키, minutes는 이벤트 시작 몇 분 전에
+// 알림을 띄울지(undefined면 알림 없음).
+const REMINDER_ORDER: { key: keyof Translations["reminderOptions"]; minutes?: number }[] = [
+  { key: "none", minutes: undefined },
+  { key: "atTime", minutes: 0 },
+  { key: "min5", minutes: 5 },
+  { key: "min10", minutes: 10 },
+  { key: "min30", minutes: 30 },
+  { key: "hour1", minutes: 60 },
+  { key: "day1", minutes: 1440 },
+];
+
 interface EventModalProps {
   date: string;
   events: OwnedEvent[];
@@ -70,6 +82,9 @@ export default function EventModal({
   const [repeatInterval, setRepeatInterval] = useState(1);
   const [repeatUntil, setRepeatUntil] = useState("");
   const [color, setColor] = useState<EventColor | undefined>(undefined);
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState<
+    number | undefined
+  >(undefined);
   // 삭제 확인 모달에 표시할 대상 이벤트 (null이면 확인 모달을 띄우지 않음).
   const [confirmDelete, setConfirmDelete] = useState<{
     id: string;
@@ -97,6 +112,7 @@ export default function EventModal({
     setRepeatInterval(1);
     setRepeatUntil("");
     setColor(undefined);
+    setReminderMinutesBefore(undefined);
   }
 
   // 선택한 기존 이벤트의 값들을 폼에 채워 넣어 수정 모드로 전환한다.
@@ -111,6 +127,7 @@ export default function EventModal({
     setRepeatInterval(event.repeatInterval ?? 1);
     setRepeatUntil(event.repeatUntil ?? "");
     setColor(event.color);
+    setReminderMinutesBefore(event.reminderMinutesBefore);
   }
 
   // 폼 제출 처리. 제목이 비어 있으면 무시하고, 수정 모드면 기존 id와 원래 시작일 및 소속 캘린더를,
@@ -132,6 +149,7 @@ export default function EventModal({
         repeatInterval: repeat !== "none" ? repeatInterval : undefined,
         repeatUntil: repeat !== "none" && repeatUntil ? repeatUntil : undefined,
         color,
+        reminderMinutesBefore: time ? reminderMinutesBefore : undefined,
       },
       ownerId
     );
@@ -275,6 +293,26 @@ export default function EventModal({
                 onChange={(e) => setTime(e.target.value)}
                 className="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
+              {time && (
+                <label className="block text-xs opacity-60">
+                  {t.reminder}
+                  <select
+                    value={reminderMinutesBefore ?? ""}
+                    onChange={(e) =>
+                      setReminderMinutesBefore(
+                        e.target.value === "" ? undefined : Number(e.target.value)
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  >
+                    {REMINDER_ORDER.map(({ key, minutes }) => (
+                      <option key={key} value={minutes ?? ""}>
+                        {t.reminderOptions[key]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <textarea
                 placeholder={t.descriptionPlaceholder}
                 value={description}

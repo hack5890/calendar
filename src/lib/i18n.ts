@@ -46,6 +46,24 @@ const dict = {
     cancelEdit: "Cancel edit",
     update: "Update",
     add: "Add",
+    reminder: "Reminder",
+    reminderOptions: {
+      none: "No reminder",
+      atTime: "At time of event",
+      min5: "5 minutes before",
+      min10: "10 minutes before",
+      min30: "30 minutes before",
+      hour1: "1 hour before",
+      day1: "1 day before",
+    },
+    activityLog: "Activity log",
+    noActivity: "No activity yet.",
+    activityCreated: (actor: string, title: string) =>
+      `${actor} added "${title}"`,
+    activityUpdated: (actor: string, title: string) =>
+      `${actor} edited "${title}"`,
+    activityDeleted: (actor: string, title: string) =>
+      `${actor} deleted "${title}"`,
     color: "Color",
     colorNone: "No color",
     colorNames: {
@@ -131,6 +149,24 @@ const dict = {
     cancelEdit: "수정 취소",
     update: "수정",
     add: "추가",
+    reminder: "알림",
+    reminderOptions: {
+      none: "알림 없음",
+      atTime: "시작 시각",
+      min5: "5분 전",
+      min10: "10분 전",
+      min30: "30분 전",
+      hour1: "1시간 전",
+      day1: "1일 전",
+    },
+    activityLog: "활동 로그",
+    noActivity: "아직 활동 내역이 없습니다.",
+    activityCreated: (actor: string, title: string) =>
+      `${actor}님이 "${title}" 일정을 추가함`,
+    activityUpdated: (actor: string, title: string) =>
+      `${actor}님이 "${title}" 일정을 수정함`,
+    activityDeleted: (actor: string, title: string) =>
+      `${actor}님이 "${title}" 일정을 삭제함`,
     color: "색상",
     colorNone: "색상 없음",
     colorNames: {
