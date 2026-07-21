@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { jsonData, jsonError } from "@/lib/server/apiResponse";
 import { requireCalendarAccess } from "@/lib/server/apiAuth";
-import { getAllEvents, saveEvent } from "@/lib/server/db";
+import { getAllEvents, logActivity, saveEvent } from "@/lib/server/db";
 import { validateEventBody } from "@/lib/server/validateEvent";
 
 export async function GET(
@@ -30,6 +30,7 @@ export async function POST(
   }
 
   saveEvent(result.event, ownerId);
+  logActivity(ownerId, auth.user.id, "created", result.event.title);
   revalidatePath("/");
   return jsonData({ success: true }, 201);
 }

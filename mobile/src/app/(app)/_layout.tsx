@@ -33,6 +33,15 @@ export default function AppLayout() {
             sheetInitialDetentIndex: 0,
           }}
         />
+        <Stack.Screen
+          name="activity-log"
+          options={{
+            headerShown: false,
+            presentation: "formSheet",
+            sheetAllowedDetents: [0.6, 0.92],
+            sheetInitialDetentIndex: 0,
+          }}
+        />
       </Stack>
     </CalendarProvider>
   );

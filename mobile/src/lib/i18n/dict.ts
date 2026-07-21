@@ -1,6 +1,26 @@
 import type { EventColor } from "@/lib/eventColors";
 import type { AuthErrorCode, ShareErrorCode } from "@/lib/types";
 
+const reminderOptionsEn = {
+  none: "No reminder",
+  atTime: "At time of event",
+  min5: "5 minutes before",
+  min10: "10 minutes before",
+  min30: "30 minutes before",
+  hour1: "1 hour before",
+  day1: "1 day before",
+};
+
+const reminderOptionsKo = {
+  none: "알림 없음",
+  atTime: "시작 시각",
+  min5: "5분 전",
+  min10: "10분 전",
+  min30: "30분 전",
+  hour1: "1시간 전",
+  day1: "1일 전",
+};
+
 export type Language = "en" | "ko";
 
 // src/lib/i18n.ts의 dict를 그대로 이식(다중 캘린더 병합/검색 관련 문자열도 향후 재사용을 위해 유지).
@@ -72,6 +92,13 @@ export const dict = {
     revoke: "Remove",
     noShares: "You haven't shared your calendar with anyone yet.",
     noEvents: "No events on this day.",
+    reminder: "Reminder",
+    reminderOptions: reminderOptionsEn,
+    activityLog: "Activity log",
+    noActivity: "No activity yet.",
+    activityCreated: (actor: string, title: string) => `${actor} added "${title}"`,
+    activityUpdated: (actor: string, title: string) => `${actor} edited "${title}"`,
+    activityDeleted: (actor: string, title: string) => `${actor} deleted "${title}"`,
     authErrors: {
       missing_fields: "Please enter a username and password.",
       username_taken: "That username is already taken.",
@@ -150,6 +177,13 @@ export const dict = {
     revoke: "제거",
     noShares: "아직 캘린더를 공유한 사람이 없습니다.",
     noEvents: "이 날짜에는 일정이 없습니다.",
+    reminder: "알림",
+    reminderOptions: reminderOptionsKo,
+    activityLog: "활동 로그",
+    noActivity: "아직 활동 내역이 없습니다.",
+    activityCreated: (actor: string, title: string) => `${actor}님이 "${title}" 일정을 추가함`,
+    activityUpdated: (actor: string, title: string) => `${actor}님이 "${title}" 일정을 수정함`,
+    activityDeleted: (actor: string, title: string) => `${actor}님이 "${title}" 일정을 삭제함`,
     authErrors: {
       missing_fields: "아이디와 비밀번호를 입력해주세요.",
       username_taken: "이미 사용 중인 아이디입니다.",

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { calendarLabel } from "@/lib/calendarLogic";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, type Translations } from "@/lib/i18n";
 import type { CalendarEvent, CalendarSummary, OwnedEvent, RecurrenceFrequency } from "@/lib/types";
 import type { EventColor } from "@/lib/eventColors";
 import ColorPicker from "./ColorPicker";
@@ -13,6 +13,17 @@ const REPEAT_ORDER: (RecurrenceFrequency | "none")[] = [
   "weekly",
   "monthly",
   "yearly",
+];
+
+// 웹 버전 EventModal.tsx의 REMINDER_ORDER와 동일한 옵션 목록.
+const REMINDER_ORDER: { key: keyof Translations["reminderOptions"]; minutes?: number }[] = [
+  { key: "none", minutes: undefined },
+  { key: "atTime", minutes: 0 },
+  { key: "min5", minutes: 5 },
+  { key: "min10", minutes: 10 },
+  { key: "min30", minutes: 30 },
+  { key: "hour1", minutes: 60 },
+  { key: "day1", minutes: 1440 },
 ];
 
 interface EventFormProps {
@@ -49,6 +60,9 @@ export default function EventForm({
   const [repeatInterval, setRepeatInterval] = useState(String(editing?.repeatInterval ?? 1));
   const [repeatUntil, setRepeatUntil] = useState(editing?.repeatUntil ?? "");
   const [color, setColor] = useState<EventColor | undefined>(editing?.color);
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number | undefined>(
+    editing?.reminderMinutesBefore
+  );
   const [targetOwnerId, setTargetOwnerId] = useState<string | undefined>(defaultOwnerId);
 
   // 새 일정 작성 중이면 선택한 대상 캘린더(targetOwnerId)에, 기존 일정 수정 중이면 그 일정이
@@ -70,6 +84,7 @@ export default function EventForm({
         repeatInterval: repeat !== "none" ? interval : undefined,
         repeatUntil: repeat !== "none" && repeatUntil ? repeatUntil : undefined,
         color,
+        reminderMinutesBefore: time.trim() ? reminderMinutesBefore : undefined,
       },
       Boolean(editing),
       ownerId
@@ -122,6 +137,38 @@ export default function EventForm({
         placeholder={t.timePlaceholder}
         className="w-full rounded-lg border border-black/10 dark:border-white/15 px-3 py-2 text-sm text-foreground dark:text-foreground-dark"
       />
+
+      {time.trim() && (
+        <View>
+          <Text className="text-xs opacity-60 mb-1 text-foreground dark:text-foreground-dark">
+            {t.reminder}
+          </Text>
+          <View className="flex-row flex-wrap gap-1.5">
+            {REMINDER_ORDER.map(({ key, minutes }) => (
+              <Pressable
+                key={key}
+                onPress={() => setReminderMinutesBefore(minutes)}
+                className={`px-2.5 py-1.5 rounded-lg border ${
+                  reminderMinutesBefore === minutes
+                    ? "bg-accent dark:bg-accent-dark border-accent dark:border-accent-dark"
+                    : "border-black/10 dark:border-white/15"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-medium ${
+                    reminderMinutesBefore === minutes
+                      ? "text-accent-foreground dark:text-accent-foreground-dark"
+                      : "text-foreground dark:text-foreground-dark"
+                  }`}
+                >
+                  {t.reminderOptions[key]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       <TextInput
         value={description}
         onChangeText={setDescription}

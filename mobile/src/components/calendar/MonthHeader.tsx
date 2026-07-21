@@ -54,6 +54,16 @@ export default function MonthHeader() {
               </Text>
             </Pressable>
           )}
+          {!isMerged && (
+            <Pressable
+              onPress={() => router.push("/activity-log")}
+              className="px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/15"
+            >
+              <Text className="text-xs font-medium text-foreground dark:text-foreground-dark">
+                {t.activityLog}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => logout()}
             className="px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/15"

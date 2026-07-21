@@ -41,6 +41,12 @@ export function validateEventBody(body: unknown): ValidateEventResult {
   if (b.color !== undefined && !(EVENT_COLORS as readonly string[]).includes(b.color as string)) {
     return { ok: false, message: "color 값이 올바르지 않습니다." };
   }
+  if (
+    b.reminderMinutesBefore !== undefined &&
+    typeof b.reminderMinutesBefore !== "number"
+  ) {
+    return { ok: false, message: "reminderMinutesBefore는 숫자여야 합니다." };
+  }
 
   return {
     ok: true,
@@ -54,6 +60,7 @@ export function validateEventBody(body: unknown): ValidateEventResult {
       repeatInterval: b.repeatInterval as number | undefined,
       repeatUntil: b.repeatUntil as string | undefined,
       color: b.color as CalendarEvent["color"],
+      reminderMinutesBefore: b.reminderMinutesBefore as number | undefined,
     },
   };
 }

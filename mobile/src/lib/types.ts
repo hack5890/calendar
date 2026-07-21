@@ -12,6 +12,7 @@ export interface CalendarEvent {
   repeatInterval?: number; // 반복 간격. 없으면 1로 취급
   repeatUntil?: string; // YYYY-MM-DD, 반복 종료일(포함). 없으면 무기한 반복
   color?: EventColor;
+  reminderMinutesBefore?: number; // 알림 시각(이벤트 시작 몇 분 전). time이 없으면 무시된다
 }
 
 // 여러 캘린더를 겹쳐볼 때, 각 이벤트가 어느 캘린더(owner) 소속인지 함께 들고 있는 형태.
@@ -32,6 +33,16 @@ export interface ShareSummary {
   sharedWithId: string;
   sharedWithUsername: string;
   permission: SharePermission;
+}
+
+export type ActivityAction = "created" | "updated" | "deleted";
+
+export interface ActivityLogEntry {
+  id: string;
+  actorUsername: string;
+  action: ActivityAction;
+  eventTitle: string;
+  createdAt: string;
 }
 
 export type AuthErrorCode =

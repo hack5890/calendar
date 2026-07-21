@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
-import type { CalendarEvent, CalendarSummary } from "@/lib/types";
+import type { ActivityLogEntry, CalendarEvent, CalendarSummary } from "@/lib/types";
 
 export function getCalendars(): Promise<CalendarSummary[]> {
   return apiFetch<CalendarSummary[]>("/api/calendars");
@@ -37,4 +37,8 @@ export function deleteEvent(
     `/api/calendars/${ownerId}/events/${eventId}`,
     { method: "DELETE" }
   );
+}
+
+export function getActivityLog(ownerId: string): Promise<ActivityLogEntry[]> {
+  return apiFetch<ActivityLogEntry[]>(`/api/calendars/${ownerId}/activity`);
 }

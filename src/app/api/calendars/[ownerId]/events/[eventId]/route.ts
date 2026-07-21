@@ -1,7 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { jsonData, jsonError } from "@/lib/server/apiResponse";
 import { requireCalendarAccess } from "@/lib/server/apiAuth";
-import { deleteEvent, saveEvent } from "@/lib/server/db";
+import {
+  deleteEvent,
+  getEventTitle,
+  logActivity,
+  saveEvent,
+} from "@/lib/server/db";
 import { validateEventBody } from "@/lib/server/validateEvent";
 
 type Params = { params: Promise<{ ownerId: string; eventId: string }> };
@@ -21,6 +26,7 @@ export async function PUT(request: Request, { params }: Params) {
   }
 
   saveEvent(result.event, ownerId);
+  logActivity(ownerId, auth.user.id, "updated", result.event.title);
   revalidatePath("/");
   return jsonData({ success: true });
 }
@@ -30,7 +36,11 @@ export async function DELETE(_request: Request, { params }: Params) {
   const auth = await requireCalendarAccess(ownerId, "edit");
   if (!auth.ok) return auth.response;
 
+  const title = getEventTitle(eventId, ownerId);
   deleteEvent(eventId, ownerId);
+  if (title !== undefined) {
+    logActivity(ownerId, auth.user.id, "deleted", title);
+  }
   revalidatePath("/");
   return jsonData({ success: true });
 }

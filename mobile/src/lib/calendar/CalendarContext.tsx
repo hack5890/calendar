@@ -11,6 +11,7 @@ import * as calendarsApi from "@/lib/api/calendars";
 import { buildMonthGrid, eventOccursOnDate, type MonthGridCell } from "@/lib/calendarLogic";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { EVENT_COLORS, EVENT_COLOR_CLASSES } from "@/lib/eventColors";
+import { useEventReminders } from "@/lib/notifications/useEventReminders";
 import type { CalendarSummary, OwnedEvent } from "@/lib/types";
 
 interface CalendarContextValue {
@@ -83,6 +84,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshEvents();
   }, [refreshEvents]);
+
+  useEventReminders(events);
 
   // 겹쳐볼 캘린더를 켜고 끈다. 최소 하나는 항상 선택돼 있어야 한다.
   // src/components/Calendar.tsx의 toggleCalendar와 동일한 규칙.
